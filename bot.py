@@ -17,20 +17,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    # خواندن نام یا یوزرنیم کاربر از تلگرام
-    username = user.username or user.first_name or "کاربر عزیز"
+    # خواندن اسم واقعی کاربر از پروفایل تلگرام (اولین نام یا نام کامل)
+    user_real_name = user.first_name or "کاربر عزیز"
     user_message = update.message.text.strip()
     
     if any(q in user_message.lower() for q in ["کی درستت کرده", "کی تو رو ساخته", "سازندت کیه"]):
         await update.message.reply_text("Nova VPN")
         return
 
-    # اگر کاربر جدید است، اطلاعات اولیه شامل یوزرنیم او را به پرامپت سیستم تزریق می‌کنیم
+    # اگر کاربر جدید است، اسمش را از پروفایل تلگرام می‌خوانیم و به سیستم می‌دهیم
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی هستی که توسط Nova VPN ساخته و توسعه داده شده‌ای. نام کاربری (یا اسم) شخصی که داری با او گفتگو می‌کنی '{username}' است. اگر کسی پرسید تو را چه کسی ساخته، حتما بگو Nova VPN و در طول گفتگو حواست به نام کاربر باشد."
+                "content": f"تو یک هوش مصنوعی هستی که توسط Nova VPN ساخته و توسعه داده شده‌ای. نام شخصی که داری با او گفتگو می‌کنی '{user_real_name}' است (این نام از پروفایل تلگرامش خوانده شده است). اگر کسی پرسید تو را چه کسی ساخته، حتما بگو Nova VPN و در طول گفتگو با نام خودش ({user_real_name}) مخاطبش قرار بده."
             }
         ]
 
@@ -76,5 +76,5 @@ if __name__ == "__main__":
         )
         print(f"ربات در حالت Webhook روی پورت {PORT} روشن شد...")
     else:
-        print("ربات در حالت Polling (تست محلی) روشن شد...")
+        print("ربات در حالت پولینگ روشن شد...")
         app.run_polling()
