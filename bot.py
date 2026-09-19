@@ -17,24 +17,50 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    # خواندن نام کاربر از پروفایل تلگرام به صورت متغیر
     user_real_name = user.first_name or "کاربر عزیز"
-    user_message = update.message.text.strip()
     
+    # تشخیص اینکه آیا کاربر عکس فرستاده یا متن
+    user_message = ""
+    image_url = None
+
+    if update.message.text:
+        user_message = update.message.text.strip()
+    elif update.message.caption:
+        user_message = update.message.caption.strip()
+    else:
+        user_message = "ارسال تصویر"
+
+    # اگر عکس ارسال شده باشد، لینک دانلود فایل آن را از تلگرام می‌گیریم
+    if update.message.photo:
+        try:
+            photo_file = await update.message.photo[-1].get_file()
+            image_url = photo_file.file_path
+        except Exception as e:
+            print(f"Error getting photo: {e}")
+
     if any(q in user_message.lower() for q in ["کی درستت کرده", "کی تو رو ساخته", "سازندت کیه"]):
         await update.message.reply_text("Nova VPN")
         return
 
-    # تنظیم پرامپت سیستم با نام متغیر هر کاربر (بدون اجبار به تلفظ عجیب در شروع)
+    # تنظیم پرامپت سیستم
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. اگر در مکالمه نیاز شد، می‌توانی طبیعی از نامش استفاده کنی، اما نیازی نیست در اولین پیام به زور و با غلط املایی نامش را صدا بزنی. کاملاً دوستانه، دقیق و طبیعی پاسخ بده."
+                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. اگر در مکالمه نیاز شد، می‌توانی طبیعی از نامش استفاده کنی. کاملاً دوستانه، دقیق و طبیعی پاسخ بده."
             }
         ]
 
-    chat_histories[user_id].append({"role": "user", "content": user_message})
+    # ساختار پیام برای ارسال به مدل هوش مصنوعی (پشتیبانی از متن و تصویر)
+    if image_url:
+        message_content = [
+            {"type": "text", "text": user_message if user_message != "ارسال تصویر" else "لطفا این تصویر را بررسی کن و درباره‌اش توضیح بده."},
+            {"type": "image_url", "image_url": {"url": image_url}}
+        ]
+    else:
+        message_content = user_message
+
+    chat_histories[user_id].append({"role": "user", "content": message_content})
 
     if len(chat_histories[user_id]) > 21:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
@@ -44,16 +70,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
+        # استفاده از مدل ویژن گروق برای تحلیل هم‌زمان متن و تصویر
         chat_completion = client.chat.completions.create(
             messages=chat_histories[user_id],
-            model="openai/gpt-oss-20b",
+            model="meta-llama/llama-3.2-11b-vision-preview",
         )
         ai_reply = chat_completion.choices[0].message.content
         
         chat_histories[user_id].append({"role": "assistant", "content": ai_reply})
         
     except Exception as e:
-        ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
+        ai_reply = "متأسفم، در پردازش درخواست یا تصویر شما خطایی رخ داد."
         print(f"Error details: {e}")
 
     await update.message.reply_text(ai_reply)
@@ -64,7 +91,9 @@ if __name__ == "__main__":
     RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
     app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    
+    # تغییر فیلتر برای دریافت هم‌زمان متن و عکس
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_message))
 
     if RENDER_EXTERNAL_URL:
         webhook_url = f"{RENDER_EXTERNAL_URL}/{TOKEN}"
