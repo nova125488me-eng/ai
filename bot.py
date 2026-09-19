@@ -66,17 +66,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
+# ذخیره لوپ اصلی برای دسترسی از فلاسْک
+main_loop = None
+
 @web_app.route("/")
 def home():
     return "Nova VPN Bot is active!"
 
 @web_app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
-    """دریافت آپدیت‌ها از تلگرام و تحویل به بات"""
+    """دریافت آپدیت‌ها از تلگرام و ارسال مستقیم به پردازشگر ربات"""
     json_data = request.get_json(force=True)
     update = Update.de_json(json_data, application.bot)
-    # اصلاح شده با put_nowait برای جلوگیری از خطای coroutine
-    application.update_queue.put_nowait(update)
+    if main_loop and update:
+        asyncio.run_coroutine_threadsafe(application.process_update(update), main_loop)
     return "OK"
 
 def run_flask():
@@ -84,6 +87,9 @@ def run_flask():
 
 if __name__ == "__main__":
     async def main():
+        global main_loop
+        main_loop = asyncio.get_running_loop()
+
         await application.initialize()
         if RENDER_EXTERNAL_URL:
             webhook_url = f"{RENDER_EXTERNAL_URL}/{TOKEN}"
