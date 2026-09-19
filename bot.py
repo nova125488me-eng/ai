@@ -29,7 +29,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         user_message = "این تصویر را تحلیل کن و درباره‌اش بگو."
 
-    # اگر کاربر عکس فرستاد، لینک مستقیم فایل از سرور تلگرام گرفته می‌شود
     if update.message.photo:
         try:
             photo_file = await update.message.photo[-1].get_file()
@@ -49,7 +48,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         ]
 
-    # ساخت پیام بر اساس اینکه متن آمده یا عکس
     if image_url:
         current_message = {
             "role": "user",
@@ -68,14 +66,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        # استفاده از مدل ویژن استاندارد گروق
         chat_completion = client.chat.completions.create(
             messages=messages_to_send,
             model="meta-llama/llama-3.2-11b-vision-preview",
         )
         ai_reply = chat_completion.choices[0].message.content
         
-        # ذخیره در تاریخچه
         chat_histories[user_id].append({"role": "user", "content": user_message})
         chat_histories[user_id].append({"role": "assistant", "content": ai_reply})
         
@@ -86,7 +82,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(chat_histories[user_id]) > 21:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
 
-    await context.message.reply_text(ai_reply)
+    # اصلاح شد: ارسال پاسخ از طریق update.message
+    await update.message.reply_text(ai_reply)
 
 if __name__ == "__main__":
     TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
