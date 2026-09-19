@@ -27,14 +27,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.message.caption:
         user_message = update.message.caption.strip()
     else:
-        user_message = "این تصویر را تحلیل کن و درباره‌اش بگو."
+        user_message = "این عکس را بررسی کن و توضیح بده."
 
+    # دریافت ایمن لینک عکس از تلگرام
     if update.message.photo:
         try:
             photo_file = await update.message.photo[-1].get_file()
             image_url = photo_file.file_path
         except Exception as e:
-            print(f"Error getting photo: {e}")
+            print(f"Photo retrieval error: {e}")
 
     if any(q in user_message.lower() for q in ["کی درستت کرده", "کی تو رو ساخته", "سازندت کیه"]):
         await update.message.reply_text("Nova VPN")
@@ -48,18 +49,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         ]
 
+    # ساخت پیام ورودی
     if image_url:
-        current_message = {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_message},
-                {"type": "image_url", "image_url": {"url": image_url}}
-            ]
-        }
+        current_content = [
+            {"type": "text", "text": user_message},
+            {"type": "image_url", "image_url": {"url": image_url}}
+        ]
     else:
-        current_message = {"role": "user", "content": user_message}
+        current_content = user_message
 
-    messages_to_send = chat_histories[user_id] + [current_message]
+    messages_to_send = chat_histories[user_id] + [{"role": "user", "content": current_content}]
 
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing"
@@ -72,17 +71,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         ai_reply = chat_completion.choices[0].message.content
         
+        # ذخیره متن در تاریخچه برای حفظ مکالمه
         chat_histories[user_id].append({"role": "user", "content": user_message})
         chat_histories[user_id].append({"role": "assistant", "content": ai_reply})
         
     except Exception as e:
-        ai_reply = "متأسفم، در پردازش تصویر یا درخواست شما خطایی رخ داد."
-        print(f"Error details: {e}")
+        ai_reply = "متأسفم، در پردازش تصویر خطایی رخ داد. لطفاً دوباره تلاش کن."
+        print(f"Groq API Error: {e}")
 
     if len(chat_histories[user_id]) > 21:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
 
-    # اصلاح شد: ارسال پاسخ از طریق update.message
     await update.message.reply_text(ai_reply)
 
 if __name__ == "__main__":
