@@ -17,7 +17,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    # خواندن نام کاربر از پروفایل تلگرام
+    # خواندن نام کاربر از پروفایل تلگرام به صورت متغیر
     user_real_name = user.first_name or "کاربر عزیز"
     user_message = update.message.text.strip()
     
@@ -25,12 +25,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Nova VPN")
         return
 
-    # تعریف دقیق هویت ربات و تفکیک آن از نام کاربر
+    # تنظیم پرامپت سیستم با نام متغیر هر کاربر (بدون اجبار به تلفظ عجیب در شروع)
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام کاربری که الان دارد با تو گفتگو می‌کند '{user_real_name}' است (این نام از اکانت تلگرامش خوانده شده). تو ربات هستی و نامت Nova VPN است، و نباید اسم خودت را با کاربر اشتباه بگیری. مخاطبت را بشناس و در صورت نیاز با همین نام خطابش کن."
+                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. اگر در مکالمه نیاز شد، می‌توانی طبیعی از نامش استفاده کنی، اما نیازی نیست در اولین پیام به زور و با غلط املایی نامش را صدا بزنی. کاملاً دوستانه، دقیق و طبیعی پاسخ بده."
             }
         ]
 
