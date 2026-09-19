@@ -19,22 +19,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_real_name = user.first_name or "کاربر عزیز"
     
-    user_message = ""
-    image_url = None
-
+    # گرفتن متن پیام یا کپشن عکس
     if update.message.text:
         user_message = update.message.text.strip()
     elif update.message.caption:
         user_message = update.message.caption.strip()
     else:
-        user_message = "این تصویر را تحلیل کن."
-
-    if update.message.photo:
-        try:
-            photo_file = await update.message.photo[-1].get_file()
-            image_url = photo_file.file_path
-        except Exception as e:
-            print(f"Error getting photo: {e}")
+        user_message = "کاربر یک تصویر ارسال کرده است."
 
     if any(q in user_message.lower() for q in ["کی درستت کرده", "کی تو رو ساخته", "سازندت کیه"]):
         await update.message.reply_text("Nova VPN")
@@ -48,42 +39,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         ]
 
-    # اگر عکس آمده باشد، به صورت موقت پیام را برای مدل ویژن می‌سازیم
-    if image_url:
-        current_message = {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_message},
-                {"type": "image_url", "image_url": {"url": image_url}}
-            ]
-        }
-    else:
-        current_message = {"role": "user", "content": user_message}
+    chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    # ساخت موقت لیست پیام‌ها برای ارسال به API (برای جلوگیری از خطای ساختار حافظه عکس)
-    messages_to_send = chat_histories[user_id] + [current_message]
+    if len(chat_histories[user_id]) > 21:
+        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
 
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing"
     )
 
     try:
+        # استفاده از مدل متن‌محور پایدار برای جلوگیری از خطای سرور
         chat_completion = client.chat.completions.create(
-            messages=messages_to_send,
-            model="meta-llama/llama-3.2-11b-vision-preview",
+            messages=chat_histories[user_id],
+            model="openai/gpt-oss-20b",
         )
         ai_reply = chat_completion.choices[0].message.content
         
-        # ذخیره در تاریخچه (برای متن ساده ذخیره می‌شود، برای عکس متنِ همراهش ذخیره می‌شود تا تاریخچه خراب نشود)
-        chat_histories[user_id].append({"role": "user", "content": user_message})
         chat_histories[user_id].append({"role": "assistant", "content": ai_reply})
         
     except Exception as e:
         ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
         print(f"Error details: {e}")
-
-    if len(chat_histories[user_id]) > 21:
-        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
 
     await update.message.reply_text(ai_reply)
 
