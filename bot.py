@@ -1,7 +1,7 @@
 import logging
 import os
 from groq import Groq
-from telegram import Update
+from telegram import Update, ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 logging.basicConfig(
@@ -17,7 +17,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    # خواندن نام کاربر از پروفایل تلگرام
     user_real_name = user.first_name or "کاربر عزیز"
     user_message = ""
 
@@ -30,12 +29,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Nova VPN")
         return
 
-    # تنظیم پرامپت سیستم با دستورالعمل دقیق برای ارسال کدها در قالب کادر مخصوص (Block Code)
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. هر زمان که خواستی کد برنامه‌نویسی، اسکریپت یا دستورات فنی بفرستی، حتماً آن را در قالب بلوک کد (Markdown code blocks با استفاده از سه علامت بک‌تیک ```) قرار بده تا کاربر بتواند به راحتی آن را کپی کند. کاملاً دوستانه، دقیق و طبیعی پاسخ بده."
+                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. هر زمان که خواستی کد برنامه‌نویسی یا اسکریپت بفرستی، حتماً آن را دقیقاً در بلوک کد مارک‌داون (یعنی با ```python و ``` در انتها) قرار بده تا تلگرام آن را به صورت کادر قابل کپی نمایش دهد. کاملاً دوستانه و دقیق پاسخ بده."
             }
         ]
 
@@ -49,7 +47,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        # استفاده از مدل متن‌محور فوق‌العاده سریع و پایدار
         chat_completion = client.chat.completions.create(
             messages=chat_histories[user_id],
             model="openai/gpt-oss-20b",
@@ -62,7 +59,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
         print(f"Error details: {e}")
 
-    await update.message.reply_text(ai_reply)
+    # ارسال پیام با قابلیت ParseMode تا تگ‌های کد تبدیل به کادر قابل‌کپی تلگرام شوند
+    try:
+        await update.message.reply_text(ai_reply, parse_mode="Markdown")
+    except Exception:
+        # اگر مدل کاراکتری فرستاد که مارک‌داون را ارور داد، به صورت متن معمولی ارسال می‌کند تا ربات کرش نکند
+        await update.message.reply_text(ai_reply)
 
 if __name__ == "__main__":
     TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
@@ -71,7 +73,6 @@ if __name__ == "__main__":
 
     app = ApplicationBuilder().token(TOKEN).build()
     
-    # فیلتر روی متن پیام‌ها
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
     if RENDER_EXTERNAL_URL:
