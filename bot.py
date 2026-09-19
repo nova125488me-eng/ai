@@ -19,7 +19,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_real_name = user.first_name or "کاربر عزیز"
     
-    # تشخیص اینکه آیا کاربر عکس فرستاده یا متن
     user_message = ""
     image_url = None
 
@@ -28,9 +27,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.message.caption:
         user_message = update.message.caption.strip()
     else:
-        user_message = "ارسال تصویر"
+        user_message = "این تصویر را تحلیل کن."
 
-    # اگر عکس ارسال شده باشد، لینک دانلود فایل آن را از تلگرام می‌گیریم
     if update.message.photo:
         try:
             photo_file = await update.message.photo[-1].get_file()
@@ -42,46 +40,50 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Nova VPN")
         return
 
-    # تنظیم پرامپت سیستم
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. اگر در مکالمه نیاز شد، می‌توانی طبیعی از نامش استفاده کنی. کاملاً دوستانه، دقیق و طبیعی پاسخ بده."
+                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. کاملاً دوستانه، دقیق و طبیعی پاسخ بده."
             }
         ]
 
-    # ساختار پیام برای ارسال به مدل هوش مصنوعی (پشتیبانی از متن و تصویر)
+    # اگر عکس آمده باشد، به صورت موقت پیام را برای مدل ویژن می‌سازیم
     if image_url:
-        message_content = [
-            {"type": "text", "text": user_message if user_message != "ارسال تصویر" else "لطفا این تصویر را بررسی کن و درباره‌اش توضیح بده."},
-            {"type": "image_url", "image_url": {"url": image_url}}
-        ]
+        current_message = {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_message},
+                {"type": "image_url", "image_url": {"url": image_url}}
+            ]
+        }
     else:
-        message_content = user_message
+        current_message = {"role": "user", "content": user_message}
 
-    chat_histories[user_id].append({"role": "user", "content": message_content})
-
-    if len(chat_histories[user_id]) > 21:
-        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
+    # ساخت موقت لیست پیام‌ها برای ارسال به API (برای جلوگیری از خطای ساختار حافظه عکس)
+    messages_to_send = chat_histories[user_id] + [current_message]
 
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing"
     )
 
     try:
-        # استفاده از مدل ویژن گروق برای تحلیل هم‌زمان متن و تصویر
         chat_completion = client.chat.completions.create(
-            messages=chat_histories[user_id],
+            messages=messages_to_send,
             model="meta-llama/llama-3.2-11b-vision-preview",
         )
         ai_reply = chat_completion.choices[0].message.content
         
+        # ذخیره در تاریخچه (برای متن ساده ذخیره می‌شود، برای عکس متنِ همراهش ذخیره می‌شود تا تاریخچه خراب نشود)
+        chat_histories[user_id].append({"role": "user", "content": user_message})
         chat_histories[user_id].append({"role": "assistant", "content": ai_reply})
         
     except Exception as e:
-        ai_reply = "متأسفم، در پردازش درخواست یا تصویر شما خطایی رخ داد."
+        ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
         print(f"Error details: {e}")
+
+    if len(chat_histories[user_id]) > 21:
+        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
 
     await update.message.reply_text(ai_reply)
 
@@ -91,8 +93,6 @@ if __name__ == "__main__":
     RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
     app = ApplicationBuilder().token(TOKEN).build()
-    
-    # تغییر فیلتر برای دریافت هم‌زمان متن و عکس
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_message))
 
     if RENDER_EXTERNAL_URL:
