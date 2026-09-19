@@ -33,7 +33,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی دستیار هستی که توسط Nova VPN ساخته شده‌ای. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. هر زمان که خواستی کد برنامه‌نویسی یا اسکریپت بفرستی، حتماً آن را دقیقاً در بلوک کد مارک‌داون (یعنی با ```python و ``` در انتها) قرار بده تا تلگرام آن را به صورت کادر قابل کپی نمایش دهد. کاملاً دوستانه و دقیق پاسخ بده."
+                "content": f"تو یک هوش مصنوعی دستیار هستی که منحصراً و فقط توسط Nova VPN ساخته شده‌ای. به هیچ وجه و تحت هیچ شرایطی نام OpenAI یا شرکت‌های دیگر را به عنوان سازنده نیاور. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. هر زمان که خواستی کد برنامه‌نویسی بفرستی، آن را در بلوک کد مارک‌داون (با ```) قرار بده تا قابل کپی باشد. کاملاً دوستانه و دقیق پاسخ بده."
             }
         ]
 
@@ -59,7 +59,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
         print(f"Error details: {e}")
 
-    # ارسال پیام با پارامتر متنیِ Markdown برای ساخت کادر کد قابل‌کپی
     try:
         await update.message.reply_text(ai_reply, parse_mode="Markdown")
     except Exception:
@@ -67,7 +66,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
-    PORT = int(os.environ.get("PORT", "8080"))
+    # تنظیم پورت روی 10000 که رندر به طور استاندارد برای وب‌هوک استفاده می‌کند
+    PORT = int(os.environ.get("PORT", "10000"))
     RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
     app = ApplicationBuilder().token(TOKEN).build()
