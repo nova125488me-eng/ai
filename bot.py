@@ -1,24 +1,26 @@
 import logging
 import os
-from flask import Flask
+import threading
+from flask import Flask, request
 from groq import Groq
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
-# یک وب‌سرور سبک برای زنده نگه داشتن پورت در رندر
+TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
+PORT = int(os.environ.get("PORT", "10000"))
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
+
 web_app = Flask(__name__)
-
-@web_app.route("/")
-def home():
-    return "Nova VPN Bot is active!"
-
 client = Groq(api_key="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")
 chat_histories = {}
+
+# ساخت اپلیکیشن تلگرام
+application = ApplicationBuilder().token(TOKEN).build()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -61,29 +63,39 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.message.reply_text(ai_reply)
 
+application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+
+@web_app.route("/")
+def home():
+    return "Nova VPN Bot is active!"
+
+@web_app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    """دریافت آپدیت‌ها از تلگرام و تحویل به بات"""
+    json_data = request.get_json(force=True)
+    update = Update.de_json(json_data, application.bot)
+    application.update_queue.put(update)
+    return "OK"
+
+def run_flask():
+    web_app.run(host="0.0.0.0", port=PORT)
+
 if __name__ == "__main__":
-    TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
-    PORT = int(os.environ.get("PORT", "10000"))
-    RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
-
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-    # اجرای همزمان وب‌سرور برای رندر و وب‌هوک تلگرام
-    if RENDER_EXTERNAL_URL:
-        webhook_url = f"{RENDER_EXTERNAL_URL}/{TOKEN}"
+    async def main():
+        await application.initialize()
+        if RENDER_EXTERNAL_URL:
+            webhook_url = f"{RENDER_EXTERNAL_URL}/{TOKEN}"
+            await application.bot.set_webhook(url=webhook_url)
+            print(f"وب‌هوک با موفقیت روی {webhook_url} ست شد.")
         
-        # استارت کردن وب‌سرور فلاسگ روی پورت رندر در یک ترد جداگانه
-        import threading
-        threading.Thread(target=lambda: web_app.run(host="0.0.0.0", port=PORT)).start()
+        await application.start()
         
-        print(f"ربات در حالت Webhook روی پورت {PORT} استارت شد...")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=TOKEN,
-            webhook_url=webhook_url,
-        )
-    else:
-        print("در حال اجرا روی حالت لوکال (Polling)...")
-        app.run_polling()
+        # استارت کردن وب‌سرور فلاسگ در پس‌زمینه
+        threading.Thread(target=run_flask, daemon=True).start()
+        
+        # نگه داشتن برنامه روشن
+        import asyncio
+        await asyncio.Event().wait()
+
+    import asyncio
+    asyncio.run(main())
