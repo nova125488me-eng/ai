@@ -1,6 +1,7 @@
 import logging
 import os
 import threading
+import asyncio
 from flask import Flask, request
 from groq import Groq
 from telegram import Update
@@ -74,7 +75,8 @@ def webhook():
     """دریافت آپدیت‌ها از تلگرام و تحویل به بات"""
     json_data = request.get_json(force=True)
     update = Update.de_json(json_data, application.bot)
-    application.update_queue.put(update)
+    # اصلاح شده با put_nowait برای جلوگیری از خطای coroutine
+    application.update_queue.put_nowait(update)
     return "OK"
 
 def run_flask():
@@ -94,8 +96,6 @@ if __name__ == "__main__":
         threading.Thread(target=run_flask, daemon=True).start()
         
         # نگه داشتن برنامه روشن
-        import asyncio
         await asyncio.Event().wait()
 
-    import asyncio
     asyncio.run(main())
