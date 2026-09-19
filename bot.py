@@ -1,7 +1,7 @@
 import logging
 import os
 from groq import Groq
-from telegram import Update, ParseMode
+from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 logging.basicConfig(
@@ -59,11 +59,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
         print(f"Error details: {e}")
 
-    # ارسال پیام با قابلیت ParseMode تا تگ‌های کد تبدیل به کادر قابل‌کپی تلگرام شوند
+    # ارسال پیام با پارامتر متنیِ Markdown برای ساخت کادر کد قابل‌کپی
     try:
         await update.message.reply_text(ai_reply, parse_mode="Markdown")
     except Exception:
-        # اگر مدل کاراکتری فرستاد که مارک‌داون را ارور داد، به صورت متن معمولی ارسال می‌کند تا ربات کرش نکند
         await update.message.reply_text(ai_reply)
 
 if __name__ == "__main__":
