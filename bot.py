@@ -66,23 +66,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
-    # تنظیم پورت روی 10000 که رندر به طور استاندارد برای وب‌هوک استفاده می‌کند
-    PORT = int(os.environ.get("PORT", "10000"))
-    RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
     app = ApplicationBuilder().token(TOKEN).build()
     
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    if RENDER_EXTERNAL_URL:
-        webhook_url = f"{RENDER_EXTERNAL_URL}/{TOKEN}"
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=TOKEN,
-            webhook_url=webhook_url,
-        )
-        print(f"ربات در حالت Webhook روی پورت {PORT} روشن شد...")
-    else:
-        print("ربات در حالت پولینگ روشن شد...")
-        app.run_polling()
+    print("ربات در حالت قدرتمند Polling روشن شد و دیگر خاموش نخواهد شد...")
+    # پاک کردن وب‌هوک قبلی برای جلوگیری از تداخل و استفاده از حالت پولینگ دائمی
+    app.run_polling(drop_pending_updates=True)
