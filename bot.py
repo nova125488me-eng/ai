@@ -22,13 +22,15 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# خواندن امن کلید گروق از متغیرهای محیطی رندر
+# خواندن کلید از متغیرهای محیطی رندر
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_KEY:
     raise ValueError("کلید گروق (GROQ_API_KEY) در متغیرهای محیطی یافت نشد!")
 
 client = Groq(api_key=GROQ_KEY)
-MODEL_NAME = "llama-3.3-70b-versatile"
+
+# استفاده از مدل کاملاً عمومی و پایه که روی تمام اکانت‌ها فعال است
+MODEL_NAME = "llama3-8b-8192"
 
 chat_histories = {}
 
