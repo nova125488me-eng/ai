@@ -9,7 +9,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# مقداردهی اولیه کلاینت گروق و مدل بسیار قدرتمند ۷۰ میلیاردی
+# مقداردهی اولیه کلاینت گروق با استفاده از متغیر محیطی رندر
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 MODEL_NAME = "llama-3.3-70b-versatile"
 
@@ -59,7 +59,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         ]
     else:
-        # به‌روزرسانی لحظه‌ای نام کاربر در پرامپت سیستم (برای وقتی که نامش را در تلگرام عوض می‌کند)
+        # به‌روزرسانی لحظه‌ای نام کاربر در پرامپت سیستم
         chat_histories[user_id][0]["content"] = (
             f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
             f"به هیچ وجه نام OpenAI را نیاور. نام کاربر جاری '{user_name}' است. "
@@ -69,7 +69,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # افزودن پیام جدید کاربر به حافظه
     chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    # مدیریت هوشمند حافظه (نگهداری پرامپت سیستم به همراه ۲۱ پیام آخر برای جلوگیری از اشباع رم)
+    # مدیریت هوشمند حافظه
     if len(chat_histories[user_id]) > 22:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-21:]
 
@@ -93,9 +93,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("مشکلی موقتی در پردازش درخواست رخ داد. لطفاً دوباره تلاش کنید.")
 
 def main():
-    # توکن ربات تلگرام خودت را اینجا قرار بده
-    TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+    # خواندن امن توکن از متغیرهای محیطی رندر
+    TOKEN = os.environ.get("BOT_TOKEN")
     
+    if not TOKEN:
+        raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     # ثبت هندلرها
