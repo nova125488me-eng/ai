@@ -22,8 +22,8 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# کلاینت گروق
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# مقداردهی اولیه کلاینت گروق با کلید مستقیم شما
+client = Groq(api_key="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")
 MODEL_NAME = "llama-3.3-70b-versatile"
 
 chat_histories = {}
@@ -96,7 +96,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("مشکلی موقتی در پردازش درخواست رخ داد. لطفاً دوباره تلاش کنید.")
 
 def main():
-    # روشن کردن وب‌سرور در یک ترد (Thread) جداگانه برای دور زدن محدودیت پورت رندر
     t = Thread(target=run_web)
     t.start()
 
