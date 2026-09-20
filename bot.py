@@ -30,26 +30,25 @@ if not GROQ_KEY:
 client = Groq(api_key=GROQ_KEY)
 
 def get_working_model():
-    """لیست مدل‌های مجاز این کلید را می‌گیرد و اولین مدل متنی معتبر را انتخاب می‌کند"""
+    """لیست مدل‌ها را می‌گیرد و مدل‌های امنیتی یا دسته‌بندی (Guard/Classification) را رد می‌کند"""
     try:
         models_response = client.models.list()
         available_models = [m.id for m in models_response.data]
-        print(f"--> Available models for your API key: {available_models}")
+        print(f"--> Available models: {available_models}")
         
-        # پیدا کردن اولین مدل متنی مناسب
         for model_id in available_models:
-            if "vision" not in model_id and "audio" not in model_id and ("llama" in model_id or "gemma" in model_id or "mixtral" in model_id or "versatile" in model_id):
-                print(f"--> Selected active model: {model_id}")
+            # رد کردن مدل‌های غیرچت، امنیتی یا دسته‌بندی
+            if any(bad_keyword in model_id.lower() for bad_keyword in ["guard", "classif", "embed", "whisper", "vision", "audio", "tool-use"]):
+                continue
+            # انتخاب مدل‌های استاندارد چت
+            if "llama" in model_id or "gemma" in model_id or "mixtral" in model_id or "versatile" in model_id:
+                print(f"--> Selected valid chat model: {model_id}")
                 return model_id
                 
-        # اگر فیلتری پیدا نشد، اولین مدل لیست را برمی‌گرداند
-        if available_models:
-            return available_models[0]
-            
     except Exception as e:
         print(f"--> Error fetching model list: {e}")
         
-    return "llama-3.3-70b-versatile" # مدل پیش‌فرض پشتیبان
+    return "llama-3.3-70b-versatile" # مدل پیش‌فرض مطمئن برای چت
 
 chat_histories = {}
 
@@ -93,7 +92,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
 
     try:
-        # انتخاب پویای مدل در هر درخواست
         current_model = get_working_model()
         
         completion = client.chat.completions.create(
