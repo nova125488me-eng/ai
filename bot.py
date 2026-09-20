@@ -74,10 +74,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_response = None
     last_error = None
 
-    # مدل‌های پایدار و امن
-    safe_models = ["llama-3.1-8b-instant", "gemma2-9b-it"]
+    # لیست مدل‌های قطعی و فعال حال حاضر گروق
+    active_models = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]
 
-    for model_name in safe_models:
+    for model_name in active_models:
         try:
             completion = client.chat.completions.create(
                 model=model_name,
@@ -96,7 +96,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(bot_response, parse_mode="Markdown")
     else:
         logging.error(f"Error handling message: {last_error}")
-        # ارسال متن دقیق خطا به تلگرام
         await update.message.reply_text(f"⚠️ خطای هوش مصنوعی:\n`{last_error}`", parse_mode="Markdown")
 
 def main():
