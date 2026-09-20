@@ -39,9 +39,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         {
             "role": "system",
             "content": (
-                "تو یک ربات هوشمند به نام NOVA VPN هستی. "
-                "اگر هر کسی از تو پرسید سازنده تو کیست یا چه کسی تو را ساخته است، صراحتاً بگو که توسط تیم NOVA VPN توسعه داده شده‌ای و هیچ ارتباطی با OpenAI نداری. "
-                "همیشه پاسخ‌های خود را بسیار خوانا، منظم و با پاراگراف‌بندی دقیق به زبان فارسی بنویس."
+                "تو دستیار هوشمند ربات NOVA VPN هستی. "
+                "اگر کسی پرسید سازنده تو کیست یا چه کسی تو را ساخته، فقط و فقط بگو: «من توسط تیم NOVA VPN ساخته شده‌ام.» و هیچ توضیحی اضافه نکن. "
+                "پاسخ‌های دیگرت را همیشه منظم، خوانا و با پاراگراف‌بندی دقیق به زبان فارسی بنویس."
             )
         },
         {
@@ -67,14 +67,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             {
                 "role": "system",
                 "content": (
-                    "تو ربات هوشمند NOVA VPN هستی. "
-                    "اگر پرسیدند سازنده‌ات کیست، بگو توسط NOVA VPN ساخته شده‌ای و ارتباطی با OpenAI نداری. "
+                    "تو دستیار هوشمند ربات NOVA VPN هستی. "
+                    "اگر کسی پرسید سازنده تو کیست، فقط بگو: «من توسط تیم NOVA VPN ساخته شده‌ام.» و کش نده. "
                     "پاسخ‌ها را منظم، خوانا و با پاراگراف‌بندی دقیق به زبان فارسی بنویس."
                 )
             }
         ]
 
-    chat_histories[user_id].append({"role": "user", "content": user_message})
+    chat_histories[user_id].append({"role=":"user", "content": user_message}) # Note: role="user" fixed inline below
+
+    # Fix dictionary key syntax if any minor typo crept in:
+    chat_histories[user_id][-1] = {"role": "user", "content": user_message}
 
     if len(chat_histories[user_id]) > 15:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-14:]
