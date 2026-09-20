@@ -96,7 +96,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(bot_response, parse_mode="Markdown")
     else:
         logging.error(f"Error handling message: {last_error}")
-        await update.message.reply_text("⚠️ مشکلی در ارتباط با هوش مصنوعی پیش آمد. لطفاً دوباره پیام بفرستید.")
+        # ارسال متن دقیق خطا به تلگرام
+        await update.message.reply_text(f"⚠️ خطای هوش مصنوعی:\n`{last_error}`", parse_mode="Markdown")
 
 def main():
     t = Thread(target=run_web)
