@@ -29,8 +29,8 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-# استفاده از مدل کاملاً عمومی و پایه که روی تمام اکانت‌ها فعال است
-MODEL_NAME = "llama3-8b-8192"
+# استفاده از مدل کاملاً جدید و فعال گروق
+MODEL_NAME = "llama-3.1-8b-instant"
 
 chat_histories = {}
 
