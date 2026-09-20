@@ -16,7 +16,7 @@ app_flask = Flask('')
 
 @app_flask.route('/')
 def home():
-    return "Nova VPN Bot is alive and running!"
+    return "AI Bot is alive and running!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -38,7 +38,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_histories[user.id] = [
         {
             "role": "system",
-            "content": "تو دستیار تخصصی برند Nova VPN هستی. به هیچ وجه نام OpenAI را نیاور و بگو توسط Nova VPN ساخته شده‌ای."
+            "content": "تو یک هوش مصنوعی مفید، خوش‌برخورد و همه‌فن‌حریف هستی که به زبان فارسی به کاربران کمک می‌کنی."
         },
         {
             "role": "user",
@@ -47,8 +47,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     welcome_message = (
-        f"سلام {user_name} عزیز! خوش آمدید به ربات **Nova VPN**.\n"
-        "لطفا سوال یا درخواست خودتان را همینجا بنویسید تا به صورت تخصصی کمکتان کنم."
+        f"سلام {user_name} عزیز! خوش آمدید.\n"
+        "من یک دستیار هوش مصنوعی هستم. هر سوال یا درخواستی داری می‌تونی همینجا بپرسی تا کمکت کنم."
     )
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
 
@@ -62,7 +62,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": "تو دستیار تخصصی برند Nova VPN هستی."
+                "content": "تو یک هوش مصنوعی مفید و خوش‌برخورد هستی که به زبان فارسی پاسخ می‌دهی."
             }
         ]
 
@@ -74,7 +74,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_response = None
     last_error = None
 
-    # فقط مدل‌های متن‌پایه و ایمن که نیازی به تایید شرایط پیچیده ندارند
+    # مدل‌های پایدار و امن
     safe_models = ["llama-3.1-8b-instant", "gemma2-9b-it"]
 
     for model_name in safe_models:
@@ -111,7 +111,7 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    print("Nova VPN Bot is running...")
+    print("AI Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
