@@ -1,26 +1,37 @@
 import os
 import logging
+from flask import Flask
+from threading import Thread
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from groq import Groq
 
-# تنظیمات لاگ‌گرفتن برای خطایابی بهتر
+# تنظیمات لاگ‌گرفتن
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# مقداردهی اولیه کلاینت گروق با استفاده از متغیر محیطی رندر
+# راه‌اندازی وب‌سرور برای پاسخ به درخواست‌های پورت رندر
+app_flask = Flask('')
+
+@app_flask.route('/')
+def home():
+    return "Nova VPN Bot is alive and running!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 8080))
+    app_flask.run(host='0.0.0.0', port=port)
+
+# کلاینت گروق
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 MODEL_NAME = "llama-3.3-70b-versatile"
 
-# ذخیره‌سازی تاریخچه چت کاربران
 chat_histories = {}
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_name = user.first_name
     
-    # راه‌اندازی یا بازنشانی حافظه کاربر همراه با پرامپت حرفه‌ای و نام جدید
     chat_histories[user.id] = [
         {
             "role": "system",
@@ -46,7 +57,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name
     user_message = update.message.text
 
-    # اگر کاربر جدید است یا هنوز تاریخچه‌ای ندارد
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
@@ -59,22 +69,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         ]
     else:
-        # به‌روزرسانی لحظه‌ای نام کاربر در پرامپت سیستم
         chat_histories[user_id][0]["content"] = (
             f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
             f"به هیچ وجه نام OpenAI را نیاور. نام کاربر جاری '{user_name}' است. "
             f"کدهای برنامه‌نویسی را در بلوک مارک‌داون (```) بفرست."
         )
 
-    # افزودن پیام جدید کاربر به حافظه
     chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    # مدیریت هوشمند حافظه
     if len(chat_histories[user_id]) > 22:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-21:]
 
     try:
-        # ارسال درخواست به مدل قدرتمند Llama 3.3 70B
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=chat_histories[user_id],
@@ -82,10 +88,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             max_tokens=3072,
         )
         bot_response = completion.choices[0].message.content
-
-        # ثبت پاسخ ربات در تاریخچه
         chat_histories[user_id].append({"role": "assistant", "content": bot_response})
-
         await update.message.reply_text(bot_response, parse_mode="Markdown")
         
     except Exception as e:
@@ -93,15 +96,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("مشکلی موقتی در پردازش درخواست رخ داد. لطفاً دوباره تلاش کنید.")
 
 def main():
-    # خواندن امن توکن از متغیرهای محیطی رندر
+    # روشن کردن وب‌سرور در یک ترد (Thread) جداگانه برای دور زدن محدودیت پورت رندر
+    t = Thread(target=run_web)
+    t.start()
+
     TOKEN = os.environ.get("BOT_TOKEN")
-    
     if not TOKEN:
         raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
 
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # ثبت هندلرها
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
