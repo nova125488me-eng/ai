@@ -29,8 +29,20 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-# استفاده از مدل کاملاً پایدار و فعال Gemma 2
-MODEL_NAME = "gemma2-9b-it"
+def get_dynamic_model():
+    """به صورت خودکار لیست مدل‌های فعال اکانت را می‌گیرد و اولین مدل متنی را انتخاب می‌کند"""
+    try:
+        models = client.models.list()
+        for model in models.data:
+            # جستجو برای مدل‌های چت و متن‌باز فعال
+            if "instruct" in model.id or "chat" in model.id or "llama" in model.id or "gemma" in model.id:
+                if "vision" not in model.id and "audio" not in model.id:
+                    return model.id
+    except Exception as e:
+        logging.warning(f"Could not fetch models dynamically: {e}")
+    
+    # مدل پیش‌فرض ایمن در صورت خطا
+    return "llama-3.1-8b-instant"
 
 chat_histories = {}
 
@@ -74,8 +86,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
 
     try:
+        # پیدا کردن مدل فعال در همان لحظه
+        active_model = get_dynamic_model()
+        
         completion = client.chat.completions.create(
-            model=MODEL_NAME,
+            model=active_model,
             messages=chat_histories[user_id],
             temperature=0.7,
             max_tokens=3072,
