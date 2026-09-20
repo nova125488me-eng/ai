@@ -29,21 +29,8 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-def get_exact_active_model():
-    """لیست مدل‌ها را می‌گیرد و دقیقاً اولین مدل معتبر موجود در اکانت را برمی‌گرداند"""
-    try:
-        models_response = client.models.list()
-        for model in models_response.data:
-            model_id = model.id
-            # رد کردن مدل‌های غیرچت
-            if any(bad in model_id.lower() for bad in ["guard", "classif", "embed", "whisper", "vision", "audio"]):
-                continue
-            print(f"--> Found active chat model: {model_id}")
-            return model_id
-    except Exception as e:
-        print(f"--> Error fetching models: {e}")
-    
-    return None
+# استفاده از مدل ثابت، سریع و کاملاً بدون نیاز به تایید شرایط
+MODEL_NAME = "llama-3.1-8b-instant"
 
 chat_histories = {}
 
@@ -87,13 +74,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
 
     try:
-        active_model = get_exact_active_model()
-        if not active_model:
-            await update.message.reply_text("⚠️ خطا: هیچ مدل فعالی برای این کلید API یافت نشد.")
-            return
-
         completion = client.chat.completions.create(
-            model=active_model,
+            model=MODEL_NAME,
             messages=chat_histories[user_id],
             temperature=0.7,
             max_tokens=512,
@@ -105,7 +87,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         error_msg = str(e)
         logging.error(f"Error handling message: {error_msg}")
-        await update.message.reply_text(f"⚠️ خطای فنی:\n`{error_msg}`", parse_mode="Markdown")
+        await update.message.reply_text(f"⚠️ خطای موقتی هوش مصنوعی:\n`{error_msg}`", parse_mode="Markdown")
 
 def main():
     t = Thread(target=run_web)
