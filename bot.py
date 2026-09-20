@@ -22,9 +22,9 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# کلاینت گروق با مدل قطعی و عمومی
+# استفاده از مدل قدرتمند و در دسترس Gemma 2
 client = Groq(api_key="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")
-MODEL_NAME = "llama-3.1-8b-instant"
+MODEL_NAME = "gemma2-9b-it"
 
 chat_histories = {}
 
