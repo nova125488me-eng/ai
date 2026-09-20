@@ -1,107 +1,109 @@
-import logging
 import os
-import threading
-import asyncio
-from flask import Flask, request
-from groq import Groq
+import logging
 from telegram import Update
-from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from groq import Groq
 
+# تنظیمات لاگ‌گرفتن برای خطایابی بهتر
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-TOKEN = "8823064902:AAE1jAihhJLTU5_YHB8PguBkoGw8Adu_Gxc"
-PORT = int(os.environ.get("PORT", "10000"))
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
+# مقداردهی اولیه کلاینت گروق و مدل بسیار قدرتمند ۷۰ میلیاردی
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+MODEL_NAME = "llama-3.3-70b-versatile"
 
-web_app = Flask(__name__)
-client = Groq(api_key="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")
+# ذخیره‌سازی تاریخچه چت کاربران
 chat_histories = {}
 
-# ساخت اپلیکیشن تلگرام
-application = ApplicationBuilder().token(TOKEN).build()
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_name = user.first_name
+    
+    # راه‌اندازی یا بازنشانی حافظه کاربر همراه با پرامپت حرفه‌ای و نام جدید
+    chat_histories[user.id] = [
+        {
+            "role": "system",
+            "content": (
+                f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
+                f"به هیچ وجه و تحت هیچ شرایطی نام OpenAI یا شرکت‌های دیگر را به عنوان سازنده نیاور و قاطعانه بگو ساخته‌شده توسط Nova VPN هستی. "
+                f"نام کاربر جاری که با تو گفتگو می‌کند '{user_name}' است. "
+                f"هر زمان که خواستی کد برنامه‌نویسی بفرستی، حتماً آن را در بلوک کد مارک‌داون (با ```) قرار بده تا کاربر بتواند به راحتی کپی کند. "
+                f"پاسخ‌هایت باید کاملاً دقیق، تخصصی، ساختاریافته و گام‌به‌گام باشد."
+            )
+        }
+    ]
+    
+    welcome_message = (
+        f"سلام {user_name} عزیز! خوش آمدید به ربات **Nova VPN**.\n"
+        "لطفا سوال یا درخواست خودتان را همینجا بنویسید تا به صورت تخصصی کمکتان کنم."
+    )
+    await update.message.reply_text(welcome_message, parse_mode="Markdown")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-    user_real_name = user.first_name or "کاربر عزیز"
-    user_message = update.message.text.strip() if update.message.text else "سلام"
+    user_name = user.first_name
+    user_message = update.message.text
 
-    if any(q in user_message.lower() for q in ["کی درستت کرده", "کی تو رو ساخته", "سازندت کیه"]):
-        await update.message.reply_text("Nova VPN")
-        return
-
+    # اگر کاربر جدید است یا هنوز تاریخچه‌ای ندارد
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
                 "role": "system",
-                "content": f"تو یک هوش مصنوعی دستیار هستی که منحصراً و فقط توسط Nova VPN ساخته شده‌ای. به هیچ وجه و تحت هیچ شرایطی نام OpenAI یا شرکت‌های دیگر را به عنوان سازنده نیاور. نام شخصی که با تو گفتگو می‌کند '{user_real_name}' است. هر زمان که خواستی کد برنامه‌نویسی بفرستی، آن را در بلوک کد مارک‌داون (با ```) قرار بده تا قابل کپی باشد. کاملاً دوستانه و دقیق پاسخ بده."
+                "content": (
+                    f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
+                    f"به هیچ وجه نام OpenAI را نیاور. نام کاربر جاری '{user_name}' است. "
+                    f"کدهای برنامه‌نویسی را در بلوک مارک‌داون (```) بفرست."
+                )
             }
         ]
+    else:
+        # به‌روزرسانی لحظه‌ای نام کاربر در پرامپت سیستم (برای وقتی که نامش را در تلگرام عوض می‌کند)
+        chat_histories[user_id][0]["content"] = (
+            f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
+            f"به هیچ وجه نام OpenAI را نیاور. نام کاربر جاری '{user_name}' است. "
+            f"کدهای برنامه‌نویسی را در بلوک مارک‌داون (```) بفرست."
+        )
 
+    # افزودن پیام جدید کاربر به حافظه
     chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    if len(chat_histories[user_id]) > 21:
-        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-20:]
-
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    # مدیریت هوشمند حافظه (نگهداری پرامپت سیستم به همراه ۲۱ پیام آخر برای جلوگیری از اشباع رم)
+    if len(chat_histories[user_id]) > 22:
+        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-21:]
 
     try:
-        chat_completion = client.chat.completions.create(
+        # ارسال درخواست به مدل قدرتمند Llama 3.3 70B
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
             messages=chat_histories[user_id],
-            model="openai/gpt-oss-20b",
+            temperature=0.7,
+            max_tokens=3072,
         )
-        ai_reply = chat_completion.choices[0].message.content
-        chat_histories[user_id].append({"role": "assistant", "content": ai_reply})
+        bot_response = completion.choices[0].message.content
+
+        # ثبت پاسخ ربات در تاریخچه
+        chat_histories[user_id].append({"role": "assistant", "content": bot_response})
+
+        await update.message.reply_text(bot_response, parse_mode="Markdown")
+        
     except Exception as e:
-        ai_reply = "متأسفم، در پردازش درخواست شما خطایی رخ داد."
-        print(f"Error details: {e}")
+        logging.error(f"Error handling message: {e}")
+        await update.message.reply_text("مشکلی موقتی در پردازش درخواست رخ داد. لطفاً دوباره تلاش کنید.")
 
-    try:
-        await update.message.reply_text(ai_reply, parse_mode="Markdown")
-    except Exception:
-        await update.message.reply_text(ai_reply)
+def main():
+    # توکن ربات تلگرام خودت را اینجا قرار بده
+    TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+    
+    app = ApplicationBuilder().token(TOKEN).build()
 
-application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    # ثبت هندلرها
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-# ذخیره لوپ اصلی برای دسترسی از فلاسْک
-main_loop = None
-
-@web_app.route("/")
-def home():
-    return "Nova VPN Bot is active!"
-
-@web_app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    """دریافت آپدیت‌ها از تلگرام و ارسال مستقیم به پردازشگر ربات"""
-    json_data = request.get_json(force=True)
-    update = Update.de_json(json_data, application.bot)
-    if main_loop and update:
-        asyncio.run_coroutine_threadsafe(application.process_update(update), main_loop)
-    return "OK"
-
-def run_flask():
-    web_app.run(host="0.0.0.0", port=PORT)
+    print("Nova VPN Bot is running...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    async def main():
-        global main_loop
-        main_loop = asyncio.get_running_loop()
-
-        await application.initialize()
-        if RENDER_EXTERNAL_URL:
-            webhook_url = f"{RENDER_EXTERNAL_URL}/{TOKEN}"
-            await application.bot.set_webhook(url=webhook_url)
-            print(f"وب‌هوک با موفقیت روی {webhook_url} ست شد.")
-        
-        await application.start()
-        
-        # استارت کردن وب‌سرور فلاسگ در پس‌زمینه
-        threading.Thread(target=run_flask, daemon=True).start()
-        
-        # نگه داشتن برنامه روشن
-        await asyncio.Event().wait()
-
-    asyncio.run(main())
+    main()
