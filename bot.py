@@ -29,12 +29,21 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-# لیست مدل‌های جایگزین به ترتیب اولویت برای جلوگیری از خطای 404
-FALLBACK_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "mixtral-8x7b-32768"
-]
+def get_live_model():
+    """به صورت پویا اولین مدل متنی فعال و غیرمنسوخ اکانت را پیدا می‌کند"""
+    try:
+        models_response = client.models.list()
+        for model in models_response.data:
+            model_id = model.id
+            # رد کردن مدل‌های غیرچت یا تخصصی مثل صوت، تصویر، امنیت و گراد
+            if any(bad in model_id.lower() for bad in ["guard", "classif", "embed", "whisper", "vision", "audio", "whisper"]):
+                continue
+            print(f"--> Using live model: {model_id}")
+            return model_id
+    except Exception as e:
+        print(f"--> Error fetching models: {e}")
+    
+    return "llama-3.1-8b-instant"
 
 chat_histories = {}
 
@@ -77,30 +86,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(chat_histories[user_id]) > 20:
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
 
-    bot_response = None
-    last_error = None
-
-    # امتحان کردن مدل‌ها به ترتیب لیست بالا تا زمانی که یکی پاسخ دهد
-    for model_name in FALLBACK_MODELS:
-        try:
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=chat_histories[user_id],
-                temperature=0.7,
-                max_tokens=512,
-            )
-            bot_response = completion.choices[0].message.content
-            break # اگر مدل موفق بود، از حلقه خارج شو
-        except Exception as e:
-            last_error = str(e)
-            continue # اگر مدل خطا داد، برو سراغ مدل بعدی
-
-    if bot_response:
+    try:
+        active_model = get_live_model()
+        
+        completion = client.chat.completions.create(
+            model=active_model,
+            messages=chat_histories[user_id],
+            temperature=0.7,
+            max_tokens=512,
+        )
+        bot_response = completion.choices[0].message.content
         chat_histories[user_id].append({"role": "assistant", "content": bot_response})
         await update.message.reply_text(bot_response, parse_mode="Markdown")
-    else:
-        logging.error(f"All models failed. Last error: {last_error}")
-        await update.message.reply_text(f"⚠️ خطای موقتی هوش مصنوعی:\n`{last_error}`", parse_mode="Markdown")
+        
+    except Exception as e:
+        error_msg = str(e)
+        logging.error(f"Error handling message: {error_msg}")
+        await update.message.reply_text(f"⚠️ خطای موقتی هوش مصنوعی:\n`{error_msg}`", parse_mode="Markdown")
 
 def main():
     t = Thread(target=run_web)
