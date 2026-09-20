@@ -22,11 +22,36 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# استفاده از مدل فعال و جدید گروق
+# اتصال به گروق با کلید شما
 client = Groq(api_key="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")
-MODEL_NAME = "llama-3.1-8b-instant"
+
+# لیست مدل‌های مختلف برای تست خودکار
+CANDIDATE_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "gemma-7b-it"
+]
 
 chat_histories = {}
+
+def get_working_completion(messages):
+    """تابع هوشمند برای تست و پیدا کردن مدلی که روی این کلید API فعال است"""
+    last_error = None
+    for model in CANDIDATE_MODELS:
+        try:
+            completion = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=3072,
+            )
+            return completion.choices[0].message.content
+        except Exception as e:
+            last_error = e
+            continue
+    raise last_error
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -81,18 +106,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-21:]
 
     try:
-        completion = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=chat_histories[user_id],
-            temperature=0.7,
-            max_tokens=3072,
-        )
-        bot_response = completion.choices[0].message.content
+        # استفاده از تابع تست خودکار مدل
+        bot_response = get_working_completion(chat_histories[user_id])
+        
         chat_histories[user_id].append({"role": "assistant", "content": bot_response})
         await update.message.reply_text(bot_response, parse_mode="Markdown")
         
     except Exception as e:
-        logging.error(f"Error handling message: {e}")
+        logging.error(f"Error handling message with all models: {e}")
         await update.message.reply_text("مشکلی موقتی در پردازش درخواست رخ داد. لطفاً دوباره تلاش کنید.")
 
 def main():
