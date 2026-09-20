@@ -22,9 +22,9 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# مقداردهی اولیه کلاینت گروق با کلید مستقیم شما
+# مقداردهی اولیه کلاینت گروق با کلید مستقیم و مدل اصلاح‌شده و معتبر
 client = Groq(api_key="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")
-MODEL_NAME = "llama-3.3-70b-versatile"
+MODEL_NAME = "llama-3.1-70b-versatile"
 
 chat_histories = {}
 
