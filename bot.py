@@ -29,26 +29,21 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-def get_working_model():
-    """لیست مدل‌ها را می‌گیرد و مدل‌های امنیتی یا دسته‌بندی (Guard/Classification) را رد می‌کند"""
+def get_exact_active_model():
+    """لیست مدل‌ها را می‌گیرد و دقیقاً اولین مدل معتبر موجود در اکانت را برمی‌گرداند"""
     try:
         models_response = client.models.list()
-        available_models = [m.id for m in models_response.data]
-        print(f"--> Available models: {available_models}")
-        
-        for model_id in available_models:
-            # رد کردن مدل‌های غیرچت، امنیتی یا دسته‌بندی
-            if any(bad_keyword in model_id.lower() for bad_keyword in ["guard", "classif", "embed", "whisper", "vision", "audio", "tool-use"]):
+        for model in models_response.data:
+            model_id = model.id
+            # رد کردن مدل‌های غیرچت
+            if any(bad in model_id.lower() for bad in ["guard", "classif", "embed", "whisper", "vision", "audio"]):
                 continue
-            # انتخاب مدل‌های استاندارد چت
-            if "llama" in model_id or "gemma" in model_id or "mixtral" in model_id or "versatile" in model_id:
-                print(f"--> Selected valid chat model: {model_id}")
-                return model_id
-                
+            print(f"--> Found active chat model: {model_id}")
+            return model_id
     except Exception as e:
-        print(f"--> Error fetching model list: {e}")
-        
-    return "llama-3.3-70b-versatile" # مدل پیش‌فرض مطمئن برای چت
+        print(f"--> Error fetching models: {e}")
+    
+    return None
 
 chat_histories = {}
 
@@ -92,10 +87,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
 
     try:
-        current_model = get_working_model()
-        
+        active_model = get_exact_active_model()
+        if not active_model:
+            await update.message.reply_text("⚠️ خطا: هیچ مدل فعالی برای این کلید API یافت نشد.")
+            return
+
         completion = client.chat.completions.create(
-            model=current_model,
+            model=active_model,
             messages=chat_histories[user_id],
             temperature=0.7,
             max_tokens=512,
@@ -105,8 +103,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(bot_response, parse_mode="Markdown")
         
     except Exception as e:
-        logging.error(f"Error handling message: {e}")
-        await update.message.reply_text("مشکلی موقتی در پردازش درخواست رخ داد. لطفاً دوباره تلاش کنید.")
+        error_msg = str(e)
+        logging.error(f"Error handling message: {error_msg}")
+        await update.message.reply_text(f"⚠️ خطای فنی:\n`{error_msg}`", parse_mode="Markdown")
 
 def main():
     t = Thread(target=run_web)
