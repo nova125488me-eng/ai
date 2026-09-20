@@ -29,22 +29,6 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-def get_live_model():
-    """به صورت پویا اولین مدل متنی فعال و غیرمنسوخ اکانت را پیدا می‌کند"""
-    try:
-        models_response = client.models.list()
-        for model in models_response.data:
-            model_id = model.id
-            # رد کردن مدل‌های غیرچت یا تخصصی مثل صوت، تصویر، امنیت و گراد
-            if any(bad in model_id.lower() for bad in ["guard", "classif", "embed", "whisper", "vision", "audio", "whisper"]):
-                continue
-            print(f"--> Using live model: {model_id}")
-            return model_id
-    except Exception as e:
-        print(f"--> Error fetching models: {e}")
-    
-    return "llama-3.1-8b-instant"
-
 chat_histories = {}
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,11 +37,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     chat_histories[user.id] = [
         {
+            "role": "system",
+            "content": "تو دستیار تخصصی برند Nova VPN هستی. به هیچ وجه نام OpenAI را نیاور و بگو توسط Nova VPN ساخته شده‌ای."
+        },
+        {
             "role": "user",
-            "content": (
-                f"سلام. من {user_name} هستم. تو از این به بعد دستیار تخصصی برند 'Nova VPN' هستی. "
-                f"به هیچ وجه نام OpenAI را نیاور و بگو توسط Nova VPN ساخته شده‌ای."
-            )
+            "content": f"سلام. من {user_name} هستم."
         }
     ]
     
@@ -76,33 +61,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
-                "role": "user",
-                "content": f"من {user_name} هستم. تو دستیار تخصصی Nova VPN هستی."
+                "role": "system",
+                "content": "تو دستیار تخصصی برند Nova VPN هستی."
             }
         ]
 
     chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    if len(chat_histories[user_id]) > 20:
-        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
+    if len(chat_histories[user_id]) > 15:
+        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-14:]
 
-    try:
-        active_model = get_live_model()
-        
-        completion = client.chat.completions.create(
-            model=active_model,
-            messages=chat_histories[user_id],
-            temperature=0.7,
-            max_tokens=512,
-        )
-        bot_response = completion.choices[0].message.content
+    bot_response = None
+    last_error = None
+
+    # فقط مدل‌های متن‌پایه و ایمن که نیازی به تایید شرایط پیچیده ندارند
+    safe_models = ["llama-3.1-8b-instant", "gemma2-9b-it"]
+
+    for model_name in safe_models:
+        try:
+            completion = client.chat.completions.create(
+                model=model_name,
+                messages=chat_histories[user_id],
+                temperature=0.7,
+                max_tokens=512,
+            )
+            bot_response = completion.choices[0].message.content
+            break
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    if bot_response:
         chat_histories[user_id].append({"role": "assistant", "content": bot_response})
         await update.message.reply_text(bot_response, parse_mode="Markdown")
-        
-    except Exception as e:
-        error_msg = str(e)
-        logging.error(f"Error handling message: {error_msg}")
-        await update.message.reply_text(f"⚠️ خطای موقتی هوش مصنوعی:\n`{error_msg}`", parse_mode="Markdown")
+    else:
+        logging.error(f"Error handling message: {last_error}")
+        await update.message.reply_text("⚠️ مشکلی در ارتباط با هوش مصنوعی پیش آمد. لطفاً دوباره پیام بفرستید.")
 
 def main():
     t = Thread(target=run_web)
