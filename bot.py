@@ -29,8 +29,8 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-# استفاده از مدل کاملاً جدید و فعال گروق
-MODEL_NAME = "llama-3.1-8b-instant"
+# استفاده از مدل کاملاً پایدار و فعال Gemma 2
+MODEL_NAME = "gemma2-9b-it"
 
 chat_histories = {}
 
@@ -40,13 +40,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     chat_histories[user.id] = [
         {
-            "role": "system",
+            "role": "user",
             "content": (
-                f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
-                f"به هیچ وجه و تحت هیچ شرایطی نام OpenAI یا شرکت‌های دیگر را به عنوان سازنده نیاور و قاطعانه بگو ساخته‌شده توسط Nova VPN هستی. "
-                f"نام کاربر جاری که با تو گفتگو می‌کند '{user_name}' است. "
-                f"هر زمان که خواستی کد برنامه‌نویسی بفرستی، حتماً آن را در بلوک کد مارک‌داون (با ```) قرار بده تا کاربر بتواند به راحتی کپی کند. "
-                f"پاسخ‌هایت باید کاملاً دقیق، تخصصی، ساختاریافته و گام‌به‌گام باشد."
+                f"سلام. من {user_name} هستم. تو از این به بعد دستیار تخصصی برند 'Nova VPN' هستی. "
+                f"به هیچ وجه نام OpenAI را نیاور و بگو توسط Nova VPN ساخته شده‌ای."
             )
         }
     ]
@@ -66,25 +63,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in chat_histories:
         chat_histories[user_id] = [
             {
-                "role": "system",
-                "content": (
-                    f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
-                    f"به هیچ وجه نام OpenAI را نیاور. نام کاربر جاری '{user_name}' است. "
-                    f"کدهای برنامه‌نویسی را در بلوک مارک‌داون (```) بفرست."
-                )
+                "role": "user",
+                "content": f"من {user_name} هستم. تو دستیار تخصصی Nova VPN هستی."
             }
         ]
-    else:
-        chat_histories[user_id][0]["content"] = (
-            f"تو یک مهندس ارشد نرم‌افزار، متخصص هوش مصنوعی و دستیار اختصاصی برند 'Nova VPN' هستی. "
-            f"به هیچ وجه نام OpenAI را نیاور. نام کاربر جاری '{user_name}' است. "
-            f"کدهای برنامه‌نویسی را در بلوک مارک‌داون (```) بفرست."
-        )
 
     chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    if len(chat_histories[user_id]) > 22:
-        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-21:]
+    if len(chat_histories[user_id]) > 20:
+        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-19:]
 
     try:
         completion = client.chat.completions.create(
