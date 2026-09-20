@@ -11,7 +11,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# راه‌اندازی وب‌سرور برای پاسخ به درخواست‌های پورت رندر
+# راه‌اندازی وب‌سرور برای پاسخ به پورت رندر
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -22,9 +22,9 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# مقداردهی اولیه کلاینت گروق با کلید مستقیم و مدل اصلاح‌شده و معتبر
+# کلاینت گروق با مدل کاملاً جدید و فعال
 client = Groq(api_key="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")
-MODEL_NAME = "llama-3.1-70b-versatile"
+MODEL_NAME = "llama-3.1-8b-instant"
 
 chat_histories = {}
 
