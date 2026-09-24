@@ -121,4 +121,3 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             bot_response = completion.choices[0].message.content
             break
-        except
