@@ -7,12 +7,10 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from groq import Groq
 
-# تنظیمات لاگ‌گرفتن
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# راه‌اندازی وب‌سرور برای پاسخ به پورت رایلوِی یا رندر
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -23,7 +21,6 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
-# خواندن کلید گروق از متغیرهای محیطی
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_KEY:
     raise ValueError("کلید گروق (GROQ_API_KEY) در متغیرهای محیطی یافت نشد!")
@@ -37,7 +34,6 @@ def fix_markdown(text):
         text += "\n```"
     return text
 
-# تابع هوشمند برای ارسال پیام‌های طولانی (پشتیبانی از کدهای طولانی بدون خطای تلگرام)
 async def send_long_message(update: Update, text: str):
     max_length = 3000
     if len(text) <= max_length:
@@ -64,13 +60,13 @@ async def send_long_message(update: Update, text: str):
             except Exception:
                 await update.message.reply_text(part)
 
+# پرامپت جدید با لحن صمیمی، پرانرژی، خودمانی و پایه‌کار
 SYSTEM_PROMPT = (
-    "تو دستیار هوشمند و حرفه‌ایِ برنامه‌نویسیِ ربات NOVA VPN هستی. "
-    "اگر کسی پرسید سازنده تو کیست یا چه کسی تو را ساخته، فقط و فقط بگو: «من توسط تیم NOVA VPN ساخته شده‌ام.» و هیچ توضیح دیگری نده. "
-    "قانون مهم برای نگارش: همیشه پاسخ‌هایت را بسیار شیک، مرتب، با فاصله‌گذاری مناسب (خطوط خالی بین پاراگراف‌ها) و بولت‌پوینت‌های تمیز به زبان فارسی بنویس. "
-    "هرگز متن‌ها را پشت‌سرهم و فشرده ننویس تا چشم کاربر خسته نشود. "
-    "کدهای برنامه‌نویسی را حتماً داخل بلوک کد (Markdown code blocks با استفاده از ```) قرار بده تا کاربر بتواند راحت کپی کند. "
-    "هر زمان کاربر درخواست کدنویسی (حتی کدهای طولانی، ربات‌های تلگرام و غیره) داد، نباید به هیچ وجه از پاسخ دادن امتناع کنی."
+    "تو دستیار هوشمند، خفن و خیلی باحالِ برنامه‌نویسیِ تیم NOVA VPN هستی. "
+    "لحن صحبت کردنت باید صمیمی، خودمانی، پرانرژی، رفاقتی و باحال باشه (اصلاً خشک و رباتی حرف نزن!). از ایموجی‌های جذاب توی صحبت‌هات استفاده کن. "
+    "اگر کسی پرسید سازنده تو کیست یا چه کسی تو را ساخته، با انرژی بگو: «من توسط تیم خفن NOVA VPN ساخته شدمه‌ام!» و هیچ توضیح اضافه‌ای نده. "
+    "قانون نگارش: متن‌ها رو خیلی مرتب، با پاراگراف‌بندی خلوت و خطوط خالی بین بخش‌ها بنویس تا چشم کاربر خسته نشه. "
+    "هر زمان کاربر درخواست کدنویسی (حتی کدهای طولانی، ربات‌های تلگرام و غیره) داد، با دست باز و باکیفیت براش بنویس و حتماً کدهای برنامه‌نویسی رو داخل بلوک کد (```) بذار تا راحت کپی بشن."
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,8 +85,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     welcome_message = (
-        f"سلام {user_name} عزیز! به **NOVA VPN** خوش آمدید. 🤖\n\n"
-        "من دستیار هوشمند شما هستم. هر سوال یا درخواستی دارید بفرمایید تا کمکتان کنم."
+        f"سلام {user_name} گل! 🚀 به ربات **NOVA VPN** خوش اومدی.\n\n"
+        "من اینجام تا توی هر پروژه‌ و کدنویسی‌ای که داری کمکت کنم. چطور می‌تونم برات مفید باشم؟ 😎"
     )
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
 
@@ -115,7 +111,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_response = None
     last_error = None
 
-    # لیست مدل‌های فعال و پرسرعت گروق
     active_models = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]
 
     for model_name in active_models:
@@ -123,37 +118,3 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             completion = client.chat.completions.create(
                 model=model_name,
                 messages=chat_histories[user_id],
-                temperature=0.7,
-                max_tokens=4096,
-            )
-            bot_response = completion.choices[0].message.content
-            break
-        except Exception as e:
-            last_error = str(e)
-            continue
-
-    if bot_response:
-        chat_histories[user_id].append({"role": "assistant", "content": bot_response})
-        await send_long_message(update, bot_response)
-    else:
-        logging.error(f"Error handling message: {last_error}")
-        await update.message.reply_text(f"❌ متأسفانه در پاسخ‌دهی خطایی رخ داد:\n`{last_error}`", parse_mode="Markdown")
-
-def main():
-    t = Thread(target=run_web)
-    t.start()
-
-    TOKEN = os.environ.get("BOT_TOKEN")
-    if not TOKEN:
-        raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
-
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-    print("AI Bot is running with python-telegram-bot...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
