@@ -1,4 +1,3 @@
-cat << 'EOF' > bot.py
 import os
 import logging
 from flask import Flask
@@ -122,33 +121,4 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             bot_response = completion.choices[0].message.content
             break
-        except Exception as e:
-            last_error = str(e)
-            continue
-
-    if bot_response:
-        chat_histories[user_id].append({"role": "assistant", "content": bot_response})
-        await send_long_message(update, bot_response)
-    else:
-        logging.error(f"Error handling message: {last_error}")
-        await update.message.reply_text(f"❌ اوه، یه خطایی رخ داد:\n`{last_error}`", parse_mode="Markdown")
-
-def main():
-    t = Thread(target=run_web)
-    t.start()
-
-    TOKEN = os.environ.get("BOT_TOKEN")
-    if not TOKEN:
-        raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
-
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-    print("AI Bot is running with bot.py...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
-EOF
+        except
