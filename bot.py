@@ -120,4 +120,3 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 max_tokens=4096
             )
             bot_response = completion.choices[0].message.content
-            break
