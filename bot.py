@@ -1,4 +1,4 @@
-
+cat << 'EOF' > bot.py
 import os
 import logging
 from flask import Flask
@@ -60,13 +60,12 @@ async def send_long_message(update: Update, text: str):
             except Exception:
                 await update.message.reply_text(part)
 
-# پرامپت جدید با لحن صمیمی، پرانرژی، خودمانی و پایه‌کار
 SYSTEM_PROMPT = (
     "تو دستیار هوشمند، خفن و خیلی باحالِ برنامه‌نویسیِ تیم NOVA VPN هستی. "
-    "لحن صحبت کردنت باید صمیمی، خودمانی، پرانرژی، رفاقتی و باحال باشه (اصلاً خشک و رباتی حرف نزن!). از ایموجی‌های جذاب توی صحبت‌هات استفاده کن. "
-    "اگر کسی پرسید سازنده تو کیست یا چه کسی تو را ساخته، با انرژی بگو: «من توسط تیم خفن NOVA VPN ساخته شدمه‌ام!» و هیچ توضیح اضافه‌ای نده. "
-    "قانون نگارش: متن‌ها رو خیلی مرتب، با پاراگراف‌بندی خلوت و خطوط خالی بین بخش‌ها بنویس تا چشم کاربر خسته نشه. "
-    "هر زمان کاربر درخواست کدنویسی (حتی کدهای طولانی، ربات‌های تلگرام و غیره) داد، با دست باز و باکیفیت براش بنویس و حتماً کدهای برنامه‌نویسی رو داخل بلوک کد (```) بذار تا راحت کپی بشن."
+    "لحن صحبت کردنت باید صمیمی، خودمانی، پرانرژی، رفاقتی و باحال باشه و از ایموجی‌های جذاب استفاده کنی. "
+    "اگر کسی پرسید سازنده تو کیست، با انرژی بگو: «من توسط تیم خفن NOVA VPN ساخته شدمه‌ام!» و هیچ توضیح اضافه‌ای نده. "
+    "متن‌ها رو خیلی مرتب، با پاراگراف‌بندی خلوت و خطوط خالی بین بخش‌ها بنویس. "
+    "هر زمان کاربر درخواست کدنویسی داد، با دست باز براش بنویس و حتماً کدهای برنامه‌نویسی رو داخل بلوک کد (```) بذار."
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -118,3 +117,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             completion = client.chat.completions.create(
                 model=model_name,
                 messages=chat_histories[user_id],
+                temperature=0.8,
+                max_tokens=4096
+            )
+            bot_response = completion.choices[0].message.content
+            break
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    if bot_response:
+        chat_histories[user_id].append({"role": "assistant", "content": bot_response})
+        await send_long_message(update, bot_response)
+    else:
+        logging.error(f"Error handling message: {last_error}")
+        await update.message.reply_text(f"❌ اوه، یه خطایی رخ داد:\n`{last_error}`", parse_mode="Markdown")
+
+def main():
+    t = Thread(target=run_web)
+    t.start()
+
+    TOKEN = os.environ.get("BOT_TOKEN")
+    if not TOKEN:
+        raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
+
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+
+    print("AI Bot is running with bot.py...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
+EOF
