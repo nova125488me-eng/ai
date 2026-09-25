@@ -52,7 +52,6 @@ def get_current_time(timezone_name: str = "Asia/Tehran"):
             "day": now.strftime("%A")
         }, ensure_ascii=False)
     except Exception as e:
-        # پیش‌فرض تهران اگر منطقه اشتباه بود
         now = datetime.now(zoneinfo.ZoneInfo("Asia/Tehran"))
         return json.dumps({
             "timezone": "Asia/Tehran",
@@ -69,11 +68,9 @@ def set_alarm_reminder(delay_seconds: int, message_text: str, chat_id: int):
         except Exception as e:
             logging.error(f"Error sending alarm: {e}")
 
-    # اجرای تسک در پس‌زمینه
     asyncio.create_task(delayed_task())
     return json.dumps({"status": "success", "message": f"آلارم با موفقیت پس از {delay_seconds} ثانیه تنظیم شد."})
 
-# معرفی ابزارها به مدل گروق
 tools = [
     {
         "type": "function",
@@ -223,7 +220,7 @@ async def handle_ai_message(message: types.Message):
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=chat_histories[chat_id],
             tools=tools,
             tool_choice="auto",
@@ -232,7 +229,6 @@ async def handle_ai_message(message: types.Message):
         
         response_message = response.choices[0].message
         
-        # بررسی اینکه آیا مدل خواسته از ابزاری استفاده کند؟
         if response_message.tool_calls:
             chat_histories[chat_id].append(response_message)
             
@@ -244,7 +240,6 @@ async def handle_ai_message(message: types.Message):
                 if function_name == "get_current_time":
                     tool_output = get_current_time(**function_args)
                 elif function_name == "set_alarm_reminder":
-                    # تزریق chat_id به تابع آلارم برای اینکه ربات بداند به کدام چت پیام بفرستد
                     function_args["chat_id"] = chat_id
                     tool_output = set_alarm_reminder(**function_args)
                 
@@ -255,9 +250,8 @@ async def handle_ai_message(message: types.Message):
                     "content": tool_output,
                 })
             
-            # دریافت پاسخ نهایی از مدل پس از اجرای ابزار
             second_response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.1-8b-instant",
                 messages=chat_histories[chat_id]
             )
             final_reply = second_response.choices[0].message.content
