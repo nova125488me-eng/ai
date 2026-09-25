@@ -10,7 +10,7 @@ from flask import Flask
 from threading import Thread
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from aiogram.fsm.storage.memory import MemoryStorage
 from groq import Groq
 
@@ -24,7 +24,7 @@ app_flask = Flask('')
 
 @app_flask.route('/')
 def home():
-    return "Advanced AI Assistant Bot is alive and running!"
+    return "🚀 NOVA VPN Ultra-Advanced Bot is live and running!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -32,6 +32,8 @@ def run_web():
 
 TOKEN = os.environ.get("BOT_TOKEN")
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
+# آیدی عددی ادمین خودت رو اینجا بگذار تا به پنل ادمین دسترسی داشته باشی
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789")) 
 
 if not TOKEN:
     raise ValueError("توکن ربات (BOT_TOKEN) یافت نشد!")
@@ -43,9 +45,9 @@ dp = Dispatcher(storage=MemoryStorage())
 client = Groq(api_key=GROQ_KEY)
 
 chat_histories = {}
-DB_NAME = "bot_database.db"
+DB_NAME = "nova_database.db"
 
-# ================= DATABASE SETUP =================
+# ================= DATABASE ENGINE =================
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
@@ -54,7 +56,14 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
-            joined_at TEXT
+            joined_at TEXT,
+            status TEXT DEFAULT 'active'
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stats (
+            key TEXT PRIMARY KEY,
+            value INTEGER
         )
     """)
     conn.commit()
@@ -73,7 +82,15 @@ def save_user(user_id, username, first_name):
     conn.commit()
     conn.close()
 
-# ================= TOOLS (AI FUNCTIONS) =================
+def get_total_users():
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users")
+    count = cur.fetchone()[0]
+    conn.close()
+    return count
+
+# ================= AI TOOLS =================
 def get_current_time(timezone_name: str = "Asia/Tehran"):
     """ساعت دقیق یک منطقه یا شهر مشخص را برمی‌گرداند."""
     try:
@@ -146,19 +163,25 @@ tools = [
 ]
 
 SYSTEM_PROMPT = (
-    "تو دستیار هوشمند، خفن و خیلی باحالِ تیم NOVA VPN هستی. "
-    "لحن صحبت کردنت صمیمی، خودمانی، پرانرژی و رفاقتی است و از ایموجی‌ها استفاده می‌کنی. "
-    "تو علاوه بر دستیار، یک برنامه‌نویس فوق‌العاده حرفه‌ای هستی و اگر کاربر از تو کدخواست، کامل و تمیز کدهایش را می‌نویسی. "
-    "تو توانایی چک کردن ساعت مناطق مختلف دنیا و تنظیم آلارم و یادآور را داری. "
-    "اگر کاربر از تو خواست لینک دانلود ویدیو بفرستد، به او بگو لینک اینستاگرام یا تیک‌تاک بفرستد."
+    "تو مغز متفکر، خفن و فوق‌العاده حرفه‌ایِ ربات NOVA VPN هستی. "
+    "لحن صحبت کردنت صمیمی، پرانرژی، خودمانی و رفاقتی است و از ایموجی‌های جذاب استفاده می‌کنی. "
+    "تو یک مهندس نرم‌افزار و برنامه‌نویس بی‌نظیر پایتون هستی. هرگاه کاربر درخواست کدنویسی داد، سورس‌کد کامل، تمیز، استاندارد و بدون نقص را تا آخرین خط می‌نویسی و به هیچ وجه آن را نصفه رها نمی‌کنی. "
+    "تو قابلیت بررسی ساعت جهانی و تنظیم آلارم را داری."
 )
 
-def get_main_menu():
+# ================= KEYBOARDS =================
+def get_main_menu(user_id):
     builder = InlineKeyboardBuilder()
     builder.row(
         types.InlineKeyboardButton(text="📥 راهنمای دانلود", callback_data="help_download"),
-        types.InlineKeyboardButton(text="📊 وضعیت ربات", callback_data="system_stats")
+        types.InlineKeyboardButton(text="📊 وضعیت سرور", callback_data="system_stats")
     )
+    builder.row(
+        types.InlineKeyboardButton(text="💎 خرید اشتراک ویژه", callback_data="buy_sub"),
+        types.InlineKeyboardButton(text="📞 پشتیبانی", callback_data="support")
+    )
+    if user_id == ADMIN_ID:
+        builder.row(types.InlineKeyboardButton(text="⚙️ پنل مدیریت", callback_data="admin_panel"))
     return builder.as_markup()
 
 # ================= HANDLERS =================
@@ -169,39 +192,97 @@ async def cmd_start(message: types.Message):
     username = message.from_user.username
     
     save_user(user_id, username, user_name)
-    chat_histories[chat_id := message.chat.id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    chat_histories[user_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     welcome_text = (
-        f"سلام {user_name} گل! 🚀 به ربات پیشرفته‌ی **NOVA VPN** خوش اومدی.\n\n"
-        "من هم می‌تونم ویدیوهای اینستاگرام و تیک‌تاک رو برات دانلود کنم و هم به عنوان دستیار هوشمندت ساعت رو بگم یا برات آلارم و یادآور تنظیم کنم! 😎"
+        f"سلام {user_name} جان! 🚀 به سیستم فوق‌پیشرفته و قدرتمند **NOVA VPN** خوش اومدی.\n\n"
+        "من دستیار همه‌فن‌حریف تو هستم؛ می‌تونم ویدیوهای اینستاگرام و تیک‌تاک رو با سرعت برات دانلود کنم، کدهای برنامه‌نویسی رو برات بنویسم، ساعت رو بگم یا برات یادآور تنظیم کنم! 😎 چه کمکی از دست من برمیاد؟"
     )
-    await message.answer(welcome_text, reply_markup=get_main_menu())
+    await message.answer(welcome_text, reply_markup=get_main_menu(user_id))
 
 @dp.callback_query(F.data == "help_download")
 async def help_cb(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        "💡 **راهنمای استفاده:**\n\n"
-        "▫️ برای دانلود: لینک اینستاگرام یا تیک‌تاک بفرست.\n"
-        "▫️ برای دستیار: می‌تونی بپرسید «الان ساعت چنده‌؟» یا «۱۰ ثانیه دیگه به من یادآوری کن فلان کار رو کنم!»",
-        reply_markup=get_main_menu()
+        "💡 **راهنمای جامع استفاده از ربات:**\n\n"
+        "▫️ **دانلود ویدیو:** کافیه لینک پست اینستاگرام یا تیک‌تاک رو بفرستی تا مستقیم فایل رو تحویلت بدم.\n"
+        "▫️ **هوش مصنوعی و کدنویسی:** هر سوالی داری بپرس یا بگو برات کد پایتون بنویسم.\n"
+        "▫️ **دستیار هوشمند:** ازم بخواه ساعت کشورهای مختلف رو بگم یا برات آلارم تنظیم کنم!",
+        reply_markup=get_main_menu(callback.from_user.id)
     )
     await callback.answer()
 
 @dp.callback_query(F.data == "system_stats")
 async def stats_cb(callback: types.CallbackQuery):
-    await callback.message.edit_text("📊 وضعیت سرور: هوشمند، پایدار و آماده به کار 🟢", reply_markup=get_main_menu())
+    total_users = get_total_users()
+    stats_text = (
+        f"📊 **گزارش وضعیت سیستم NOVA:**\n\n"
+        f"🟢 وضعیت سرور: آنلاین و پایدار\n"
+        f"👥 کل کاربران ثبت‌نام شده: {total_users} نفر\n"
+        f"⚡️ موتور هوش مصنوعی: فعال و پرسرعت"
+    )
+    await callback.message.edit_text(stats_text, reply_markup=get_main_menu(callback.from_user.id))
     await callback.answer()
 
-# ویدیو دانلودر
+@dp.callback_query(F.data == "buy_sub")
+async def buy_sub_cb(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "💎 **خرید اشتراک پرسرعت NOVA VPN:**\n\n"
+        "برای خرید اکانت پرسرعت با حجم نامحدود و پینگ فوق‌العاده پایین، به پشتیبانی پیام بدهید.",
+        reply_markup=get_main_menu(callback.from_user.id)
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "support")
+async def support_cb(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "📞 **ارتباط با تیم پشتیبانی:**\n\nهر گونه مشکل یا سوالی دارید، تیم ما 24 ساعته در خدمت شماست.",
+        reply_markup=get_main_menu(callback.from_user.id)
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_panel")
+async def admin_panel_cb(callback: types.CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ شما دسترسی ادمین ندارید!", show_alert=True)
+        return
+    
+    builder = InlineKeyboardBuilder()
+    builder.row(types.InlineKeyboardButton(text="📈 آمار کامل کاربران", callback_data="admin_stats"))
+    builder.row(types.InlineKeyboardButton(text="🔙 بازگشت به منوی اصلی", callback_data="back_home"))
+    
+    await callback.message.edit_text("⚙️ **پنل مدیریت پیشرفته NOVA:**\n\nلطفاً گزینه مورد نظر را انتخاب کنید:", reply_markup=builder.as_markup())
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_stats")
+async def admin_stats_cb(callback: types.CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    total_users = get_total_users()
+    builder = InlineKeyboardBuilder()
+    builder.row(types.InlineKeyboardButton(text="🔙 بازگشت به پنل", callback_data="admin_panel"))
+    
+    await callback.message.edit_text(f"📈 آمار کل کاربران ربات در دیتابیس: **{total_users}** نفر", reply_markup=builder.as_markup())
+    await callback.answer()
+
+@dp.callback_query(F.data == "back_home")
+async def back_home_cb(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    await callback.message.edit_text(
+        f"سلام {callback.from_user.first_name} عزیز! به منوی اصلی برگشتیم. 🚀",
+        reply_markup=get_main_menu(user_id)
+    )
+    await callback.answer()
+
+# ================= VIDEO DOWNLOADER =================
 @dp.message(F.text.regexp(r'https?://[^\s]+'))
 async def download_video(message: types.Message):
     url = message.text.strip()
     
     if "youtube.com" in url or "youtu.be" in url:
-        await message.answer("⚠️ دانلود از یوتیوب غیرفعال است. لطفاً لینک **اینستاگرام یا تیک‌تاک** بفرستید.")
+        await message.answer("⚠️ دانلود از یوتیوب غیرفعال است. لطفاً لینک معتبر **اینستاگرام یا تیک‌تاک** بفرستید.")
         return
 
-    processing_msg = await message.answer("⏳ در حال دانلود ویدیو، لطفاً صبور باشید...")
+    processing_msg = await message.answer("⏳ در حال دانلود ویدیو با حداکثر کیفیت، لطفاً صبور باشید...")
     
     output_template = f"downloaded_video_{message.chat.id}.%(ext)s"
     ydl_opts = {
@@ -233,34 +314,35 @@ async def download_video(message: types.Message):
                 await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
             except:
                 pass
-            await message.answer("❌ خطا در دانلود فایل. لطفاً لینک معتبر بفرستید.")
+            await message.answer("❌ خطا در دانلود فایل. لطفاً لینک معتبر ارسال کنید.")
             
     except Exception as e:
-        logging.error(f"Error: {e}")
+        logging.error(f"Download Error: {e}")
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
         except:
             pass
         await message.answer("❌ خطایی رخ داد یا لینک نامعتبر است.")
 
-# هوش مصنوعی با قابلیت ابزارها (Tools)
+# ================= AI CHAT & TOOL EXECUTION =================
 @dp.message()
 async def handle_ai_message(message: types.Message):
-    chat_id = message.chat.id
+    user_id = message.from_user.id
     user_message = message.text
 
-    if chat_id not in chat_histories:
-        chat_histories[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if user_id not in chat_histories:
+        chat_histories[user_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    chat_histories[chat_id].append({"role": "user", "content": user_message})
+    chat_histories[user_id].append({"role": "user", "content": user_message})
 
-    if len(chat_histories[chat_id]) > 15:
-        chat_histories[chat_id] = [chat_histories[chat_id][0]] + chat_histories[chat_id][-14:]
+    # مدیریت اندازه حافظه گفتگو
+    if len(chat_histories[user_id]) > 15:
+        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-14:]
 
     try:
         response = client.chat.completions.create(
             model="qwen/qwen3.8-27b",
-            messages=chat_histories[chat_id],
+            messages=chat_histories[user_id],
             tools=tools,
             tool_choice="auto",
             max_tokens=800
@@ -269,7 +351,7 @@ async def handle_ai_message(message: types.Message):
         response_message = response.choices[0].message
         
         if response_message.tool_calls:
-            chat_histories[chat_id].append(response_message)
+            chat_histories[user_id].append(response_message)
             
             for tool_call in response_message.tool_calls:
                 function_name = tool_call.function.name
@@ -279,10 +361,10 @@ async def handle_ai_message(message: types.Message):
                 if function_name == "get_current_time":
                     tool_output = get_current_time(**function_args)
                 elif function_name == "set_alarm_reminder":
-                    function_args["chat_id"] = chat_id
+                    function_args["chat_id"] = user_id
                     tool_output = set_alarm_reminder(**function_args)
                 
-                chat_histories[chat_id].append({
+                chat_histories[user_id].append({
                     "tool_call_id": tool_call.id,
                     "role": "tool",
                     "name": function_name,
@@ -291,26 +373,27 @@ async def handle_ai_message(message: types.Message):
             
             second_response = client.chat.completions.create(
                 model="qwen/qwen3.8-27b",
-                messages=chat_histories[chat_id],
+                messages=chat_histories[user_id],
                 max_tokens=800
             )
             final_reply = second_response.choices[0].message.content
-            chat_histories[chat_id].append({"role": "assistant", "content": final_reply})
+            chat_histories[user_id].append({"role": "assistant", "content": final_reply})
             await message.answer(final_reply)
         else:
             bot_response = response_message.content
-            chat_histories[chat_id].append({"role": "assistant", "content": bot_response})
+            chat_histories[user_id].append({"role": "assistant", "content": bot_response})
             await message.answer(bot_response)
 
     except Exception as e:
         logging.error(f"AI Error: {e}")
         await message.answer("❌ متأسفانه در پردازش درخواست شما خطایی رخ داد.")
 
+# ================= MAIN ENTRY =================
 async def main():
     t = Thread(target=run_web)
     t.start()
 
-    print("🤖 ربات هوشمند پیشرفته با دیتابیس روشن شد...")
+    print("🤖 ربات فوق‌العاده قدرتمند NOVA VPN با موفقیت روشن شد و آماده‌ی کار است...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
