@@ -220,7 +220,7 @@ async def handle_ai_message(message: types.Message):
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama3-8b-8192",
             messages=chat_histories[chat_id],
             tools=tools,
             tool_choice="auto",
@@ -251,7 +251,7 @@ async def handle_ai_message(message: types.Message):
                 })
             
             second_response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model="llama3-8b-8192",
                 messages=chat_histories[chat_id]
             )
             final_reply = second_response.choices[0].message.content
