@@ -224,7 +224,7 @@ async def handle_ai_message(message: types.Message):
             messages=chat_histories[chat_id],
             tools=tools,
             tool_choice="auto",
-            max_tokens=2048
+            max_tokens=800
         )
         
         response_message = response.choices[0].message
@@ -252,7 +252,8 @@ async def handle_ai_message(message: types.Message):
             
             second_response = client.chat.completions.create(
                 model="qwen/qwen3.8-27b",
-                messages=chat_histories[chat_id]
+                messages=chat_histories[chat_id],
+                max_tokens=800
             )
             final_reply = second_response.choices[0].message.content
             chat_histories[chat_id].append({"role": "assistant", "content": final_reply})
