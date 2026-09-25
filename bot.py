@@ -33,7 +33,7 @@ def run_web():
 TOKEN = os.environ.get("BOT_TOKEN")
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 # آیدی عددی ادمین خودت رو اینجا بگذار تا به پنل ادمین دسترسی داشته باشی
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "123456789")) 
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "1768250762")) 
 
 if not TOKEN:
     raise ValueError("توکن ربات (BOT_TOKEN) یافت نشد!")
