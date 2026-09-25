@@ -24,7 +24,7 @@ app_flask = Flask('')
 
 @app_flask.route('/')
 def home():
-    return "🚀 NOVA AI Assistant Bot is live and running!"
+    return "🚀 NOVA Ultra-Friendly Bot is live and running!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -97,7 +97,7 @@ def set_alarm_reminder(delay_seconds: int, message_text: str, chat_id: int):
     async def delayed_task():
         await asyncio.sleep(delay_seconds)
         try:
-            await bot.send_message(chat_id=chat_id, text=f"⏰ **یادآوری / آلارم:**\n\n{message_text}")
+            await bot.send_message(chat_id=chat_id, text=f"⏰ **یادآوری رفاقتی:**\n\n{message_text}")
         except Exception as e:
             logging.error(f"Error sending alarm: {e}")
 
@@ -109,13 +109,13 @@ tools = [
         "type": "function",
         "function": {
             "name": "get_current_time",
-            "description": "ساعت دقیق یک شهر یا منطقه زمانی را به دست می‌آورد (پیش‌فرض تهران است).",
+            "description": "ساعت دقیق یک شهر یا منطقه زمانی را به دست می‌آورد.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "timezone_name": {
                         "type": "string",
-                        "description": "نام منطقه زمانی مثل Asia/Tehran, America/New_York, Europe/London"
+                        "description": "نام منطقه زمانی مثل Asia/Tehran"
                     }
                 },
                 "required": []
@@ -126,17 +126,17 @@ tools = [
         "type": "function",
         "function": {
             "name": "set_alarm_reminder",
-            "description": "یک یادآور یا آلارم تنظیم می‌کند تا بعد از گذشت ثانیه‌های مشخص شده، پیامی به کاربر ارسال کند.",
+            "description": "یک یادآور یا آلارم تنظیم می‌کند تا بعد از گذشت ثانیه‌های مشخص شده، پیام بفرستد.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "delay_seconds": {
                         "type": "integer",
-                        "description": "تعداد ثانیه‌هایی که باید صبر کرد تا آلارم زنگ بخورد."
+                        "description": "تعداد ثانیه‌ها"
                     },
                     "message_text": {
                         "type": "string",
-                        "description": "متنی که باید در زمان یادآوری به کاربر فرستاده شود."
+                        "description": "متن یادآوری"
                     }
                 },
                 "required": ["delay_seconds", "message_text"]
@@ -145,12 +145,13 @@ tools = [
     }
 ]
 
+# پرامپت سیستمی کاملاً خودمانی، فارسی و رفاقتی
 SYSTEM_PROMPT = (
-    "تو دستیار هوشمند، خفن و فوق‌العاده حرفه‌ایِ امیرعلی هستی. "
-    "لحن صحبت کردنت صمیمی، پرانرژی، خودمانی و رفاقتی است و از ایموجی‌های جذاب استفاده می‌کنی. "
-    "تو یک مهندس نرم‌افزار و برنامه‌نویس بی‌نظیر پایتون هستی. هرگاه امیرعلی درخواست کدنویسی داد، سورس‌کد کامل، تمیز، استاندارد و بدون نقص را تا آخرین خط می‌نویسی و به هیچ وجه آن را نصفه رها نمی‌کنی. "
-    "تو قابلیت بررسی ساعت جهانی و تنظیم آلارم را داری. "
-    "اگر لینک اینستاگرام یا تیک‌تاک فرستاد، ویدیویش را دانلود می‌کنی."
+    "تو دستیار هوشمند، فوق‌العاده باحال، صمیمی و رفیق فابریکِ امیرعلی هستی. "
+    "تک‌تک جملاتت رو با لحنی کاملاً خودمانی، پرانرژی، گرم و پر از ایموجی‌های باحال بنویس. "
+    "به هیچ وجه از کلمات یا کاراکترهای چینی، ژاپنی یا زبان‌های دیگه استفاده نکن و همیشه کاملاً روان، فارسی و شیرین صحبت کن. "
+    "یک برنامه‌نویس خفن پایتون هستی که هر وقت امیرعلی کد خواست، سورس‌کد کامل، تمیز و بدون نقص رو تا خط آخر براش می‌نویسی. "
+    "می‌تونی ساعت رو بگی، آلارم تنظیم کنی و لینک‌های اینستاگرام یا تیک‌تاک رو هم مدیریت کنی."
 )
 
 # ================= KEYBOARDS =================
@@ -158,7 +159,7 @@ def get_main_menu():
     builder = InlineKeyboardBuilder()
     builder.row(
         types.InlineKeyboardButton(text="📥 راهنمای دانلود", callback_data="help_download"),
-        types.InlineKeyboardButton(text="💡 درباره دستیار", callback_data="about_bot")
+        types.InlineKeyboardButton(text="☕️ درباره من", callback_data="about_bot")
     )
     return builder.as_markup()
 
@@ -173,18 +174,18 @@ async def cmd_start(message: types.Message):
     chat_histories[user_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     welcome_text = (
-        f"سلام {user_name} جان! 🚀 به ربات دستیار هوشمند و برنامه‌نویس خودت خوش اومدی.\n\n"
-        "من اینجام تا توی کدنویسی پایتون، پاسخ به سوالات، دانلود ویدیو از اینستاگرام و تیک‌تاک، و تنظیم آلارم و ساعت کمکت کنم! 😎 چه کارم داری؟"
+        f"سلام {user_name} جان، چطوری داش؟! 🚀😎\n\n"
+        "من اومدم تا به عنوان رفیقِ شفیقت توی کدنویسی، دانلود ویدیوهای اینستا و تیک‌تاک، و کارهای باحالِ دیگه کمکت کنم. هر چی می‌خوای بگو تا با هم ردیفش کنیم! 🔥"
     )
     await message.answer(welcome_text, reply_markup=get_main_menu())
 
 @dp.callback_query(F.data == "help_download")
 async def help_cb(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        "💡 **راهنمای استفاده از ربات:**\n\n"
-        "▫️ **کدنویسی:** هر سوال یا کدی خواستی بگو تا برات بنویسم.\n"
-        "▫️ **دانلود ویدیو:** لینک اینستاگرام یا تیک‌تاک بفرست تا ویدیوش رو دانلود کنم.\n"
-        "▫️ **ساعت و آلارم:** ازم بپرس ساعت چنده یا بگو یادآور تنظیم کنم.",
+        "💡 **راهنمای رفاقتی:**\n\n"
+        "▫️ **کدنویسی:** هر جا گیر کردی بگو تا برات کد پایتون بنویسم.\n"
+        "▫️ **دانلود:** لینک اینستاگرام یا تیک‌تاک بفرست تا مستقیم فایلش رو بفرستم.\n"
+        "▫️ **ساعت و آلارم:** کافیه بپرس ساعت چنده یا یادآوری تنظیم کنی!",
         reply_markup=get_main_menu()
     )
     await callback.answer()
@@ -192,8 +193,7 @@ async def help_cb(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "about_bot")
 async def about_cb(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        "🤖 **درباره دستیار هوشمند:**\n\n"
-        "این یک ربات هوش مصنوعی اختصاصی، سریع و مجهز به مدل قدرتمند Qwen است که برای کمک به شما در کدنویسی و کارهای روزمره بهینه‌سازی شده.",
+        "☕️ من رباتِ اختصاصیِ خودِ توام؛ سریع، باهوش، صمیمی و بدون هیچ‌گونه ادا و اصول اضافه‌ای! هر کمکی خواستی روی من حساب کن. 😎",
         reply_markup=get_main_menu()
     )
     await callback.answer()
@@ -204,10 +204,10 @@ async def download_video(message: types.Message):
     url = message.text.strip()
     
     if "youtube.com" in url or "youtu.be" in url:
-        await message.answer("⚠️ دانلود از یوتیوب غیرفعال است. لطفاً لینک معتبر **اینستاگرام یا تیک‌تاک** بفرستید.")
+        await message.answer("⚠️ داش یوتیوب فعلاً تعطیله، لطفاً لینک معتبر **اینستاگرام یا تیک‌تاک** بفرست! 😉")
         return
 
-    processing_msg = await message.answer("⏳ در حال دانلود ویدیو، لطفاً صبور باشید...")
+    processing_msg = await message.answer("⏳ دمت گرم، صبور باش دارم ویدیو رو می‌کشم بیرون...")
     
     output_template = f"downloaded_video_{message.chat.id}.%(ext)s"
     ydl_opts = {
@@ -225,7 +225,7 @@ async def download_video(message: types.Message):
         filename = await asyncio.to_thread(run_dl)
         
         if filename and os.path.exists(filename):
-            await message.answer_video(types.FSInputFile(filename), caption="✅ ویدیو با موفقیت دانلود شد!")
+            await message.answer_video(types.FSInputFile(filename), caption="✅ بیا اینم ویدیوت، حالشو ببر! 😎")
             try:
                 os.remove(filename)
             except:
@@ -239,7 +239,7 @@ async def download_video(message: types.Message):
                 await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
             except:
                 pass
-            await message.answer("❌ خطا در دانلود فایل. لطفاً لینک معتبر ارسال کنید.")
+            await message.answer("❌ داداش لینکه‌ مشکل داشت، نتونستم دانلود کنم.")
             
     except Exception as e:
         logging.error(f"Download Error: {e}")
@@ -247,7 +247,7 @@ async def download_video(message: types.Message):
             await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
         except:
             pass
-        await message.answer("❌ خطایی رخ داد یا لینک نامعتبر است.")
+        await message.answer("❌ اوه اوه، یه جای کار لنگ زد یا لینک معتبر نبود.")
 
 # ================= AI CHAT & TOOL EXECUTION =================
 @dp.message()
@@ -264,8 +264,9 @@ async def handle_ai_message(message: types.Message):
         chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-14:]
 
     try:
+        # تغییر مدل به نسخه قدرتمند جدید با هوش بالا و بدون چینی‌بازی
         response = client.chat.completions.create(
-            model="qwen/qwen3.8-27b",
+            model="openai/gpt-oss-120b",
             messages=chat_histories[user_id],
             tools=tools,
             tool_choice="auto",
@@ -296,7 +297,7 @@ async def handle_ai_message(message: types.Message):
                 })
             
             second_response = client.chat.completions.create(
-                model="qwen/qwen3.8-27b",
+                model="openai/gpt-oss-120b",
                 messages=chat_histories[user_id],
                 max_tokens=800
             )
@@ -310,14 +311,14 @@ async def handle_ai_message(message: types.Message):
 
     except Exception as e:
         logging.error(f"AI Error: {e}")
-        await message.answer("❌ متأسفانه در پردازش درخواست شما خطایی رخ داد.")
+        await message.answer("❌ داداش یه خطای کوچیک پیش اومد، دوباره بگو تا حلش کنیم.")
 
 # ================= MAIN ENTRY =================
 async def main():
     t = Thread(target=run_web)
     t.start()
 
-    print("🤖 ربات دستیار هوشمند با موفقیت روشن شد و آماده‌ی کار است...")
+    print("🤖 ربات رفیق و باحالِ امیرعلی با موفقیت روشن شد و آماده‌ی ترکوندنه...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
