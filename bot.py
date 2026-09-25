@@ -1,19 +1,23 @@
 import os
 import logging
 import asyncio
-import yt_dlp
-from datetime import datetime, timezone, timedelta
+import sqlite3
+import json
 import zoneinfo
+from datetime import datetime
+import yt_dlp
 from flask import Flask
 from threading import Thread
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.fsm.storage.memory import MemoryStorage
 from groq import Groq
-import json
 
+# ================= CONFIG & LOGGING =================
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
 )
 
 app_flask = Flask('')
@@ -35,12 +39,41 @@ if not GROQ_KEY:
     raise ValueError("کلید گروق (GROQ_API_KEY) یافت نشد!")
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 client = Groq(api_key=GROQ_KEY)
 
 chat_histories = {}
+DB_NAME = "bot_database.db"
 
-# --- توابع ابزار (Tools) برای دستیار هوشمند ---
+# ================= DATABASE SETUP =================
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            joined_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def save_user(user_id, username, first_name):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        INSERT OR IGNORE INTO users (user_id, username, first_name, joined_at)
+        VALUES (?, ?, ?, ?)
+    """, (user_id, username, first_name, now))
+    conn.commit()
+    conn.close()
+
+# ================= TOOLS (AI FUNCTIONS) =================
 def get_current_time(timezone_name: str = "Asia/Tehran"):
     """ساعت دقیق یک منطقه یا شهر مشخص را برمی‌گرداند."""
     try:
@@ -115,6 +148,7 @@ tools = [
 SYSTEM_PROMPT = (
     "تو دستیار هوشمند، خفن و خیلی باحالِ تیم NOVA VPN هستی. "
     "لحن صحبت کردنت صمیمی، خودمانی، پرانرژی و رفاقتی است و از ایموجی‌ها استفاده می‌کنی. "
+    "تو علاوه بر دستیار، یک برنامه‌نویس فوق‌العاده حرفه‌ای هستی و اگر کاربر از تو کدخواست، کامل و تمیز کدهایش را می‌نویسی. "
     "تو توانایی چک کردن ساعت مناطق مختلف دنیا و تنظیم آلارم و یادآور را داری. "
     "اگر کاربر از تو خواست لینک دانلود ویدیو بفرستد، به او بگو لینک اینستاگرام یا تیک‌تاک بفرستد."
 )
@@ -127,10 +161,15 @@ def get_main_menu():
     )
     return builder.as_markup()
 
+# ================= HANDLERS =================
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     user_name = message.from_user.first_name
-    chat_histories[message.chat.id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    user_id = message.from_user.id
+    username = message.from_user.username
+    
+    save_user(user_id, username, user_name)
+    chat_histories[chat_id := message.chat.id] = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     welcome_text = (
         f"سلام {user_name} گل! 🚀 به ربات پیشرفته‌ی **NOVA VPN** خوش اومدی.\n\n"
@@ -153,7 +192,7 @@ async def stats_cb(callback: types.CallbackQuery):
     await callback.message.edit_text("📊 وضعیت سرور: هوشمند، پایدار و آماده به کار 🟢", reply_markup=get_main_menu())
     await callback.answer()
 
-# هندلر لینک‌ها برای دانلود ویدیو
+# ویدیو دانلودر
 @dp.message(F.text.regexp(r'https?://[^\s]+'))
 async def download_video(message: types.Message):
     url = message.text.strip()
@@ -204,7 +243,7 @@ async def download_video(message: types.Message):
             pass
         await message.answer("❌ خطایی رخ داد یا لینک نامعتبر است.")
 
-# هندلر پیام‌های متنی عادی و هوش مصنوعی با قابلیت ابزارها (Tools)
+# هوش مصنوعی با قابلیت ابزارها (Tools)
 @dp.message()
 async def handle_ai_message(message: types.Message):
     chat_id = message.chat.id
@@ -271,7 +310,7 @@ async def main():
     t = Thread(target=run_web)
     t.start()
 
-    print("🤖 ربات هوشمند پیشرفته روشن شد...")
+    print("🤖 ربات هوشمند پیشرفته با دیتابیس روشن شد...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
