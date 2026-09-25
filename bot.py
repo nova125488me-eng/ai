@@ -1,10 +1,16 @@
 import os
 import logging
+import asyncio
+import yt_dlp
+from datetime import datetime, timezone, timedelta
+import zoneinfo
 from flask import Flask
 from threading import Thread
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from aiogram import Bot, Dispatcher, F, types
+from aiogram.filters import Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from groq import Groq
+import json
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -14,139 +20,267 @@ app_flask = Flask('')
 
 @app_flask.route('/')
 def home():
-    return "AI Bot is alive and running!"
+    return "Advanced AI Assistant Bot is alive and running!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_flask.run(host='0.0.0.0', port=port)
 
+TOKEN = os.environ.get("BOT_TOKEN")
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
-if not GROQ_KEY:
-    raise ValueError("کلید گروق (GROQ_API_KEY) در متغیرهای محیطی یافت نشد!")
 
+if not TOKEN:
+    raise ValueError("توکن ربات (BOT_TOKEN) یافت نشد!")
+if not GROQ_KEY:
+    raise ValueError("کلید گروق (GROQ_API_KEY) یافت نشد!")
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
 client = Groq(api_key=GROQ_KEY)
 
 chat_histories = {}
 
-def fix_markdown(text):
-    if text.count("```") % 2 != 0:
-        text += "\n```"
-    return text
+# --- توابع ابزار (Tools) برای دستیار هوشمند ---
+def get_current_time(timezone_name: str = "Asia/Tehran"):
+    """ساعت دقیق یک منطقه یا شهر مشخص را برمی‌گرداند."""
+    try:
+        tz = zoneinfo.ZoneInfo(timezone_name)
+        now = datetime.now(tz)
+        return json.dumps({
+            "timezone": timezone_name,
+            "time": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "day": now.strftime("%A")
+        }, ensure_ascii=False)
+    except Exception as e:
+        # پیش‌فرض تهران اگر منطقه اشتباه بود
+        now = datetime.now(zoneinfo.ZoneInfo("Asia/Tehran"))
+        return json.dumps({
+            "timezone": "Asia/Tehran",
+            "time": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "error": "منطقه زمانی نامعتبر بود، ساعت تهران اعلام شد."
+        }, ensure_ascii=False)
 
-async def send_long_message(update: Update, text: str):
-    max_length = 3000
-    if len(text) <= max_length:
-        safe_text = fix_markdown(text)
+def set_alarm_reminder(delay_seconds: int, message_text: str, chat_id: int):
+    """تنظیم یک آلارم یا یادآور که بعد از تعداد ثانیه‌ مشخصی پیام بفرستد."""
+    async def delayed_task():
+        await asyncio.sleep(delay_seconds)
         try:
-            await update.message.reply_text(safe_text, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(text)
-    else:
-        parts = [text[i:i+max_length] for i in range(0, len(text), max_length)]
-        for index, part in enumerate(parts):
-            prev_text = "".join(parts[:index])
-            is_inside_code = (prev_text.count("```") % 2 != 0)
-            
-            current_part = part
-            if is_inside_code:
-                current_part = "```python\n" + current_part
-            
-            if current_part.count("```") % 2 != 0:
-                current_part += "\n```"
-            
-            try:
-                await update.message.reply_text(current_part, parse_mode="Markdown")
-            except Exception:
-                await update.message.reply_text(part)
+            await bot.send_message(chat_id=chat_id, text=f"⏰ **یادآوری / آلارم:**\n\n{message_text}")
+        except Exception as e:
+            logging.error(f"Error sending alarm: {e}")
+
+    # اجرای تسک در پس‌زمینه
+    asyncio.create_task(delayed_task())
+    return json.dumps({"status": "success", "message": f"آلارم با موفقیت پس از {delay_seconds} ثانیه تنظیم شد."})
+
+# معرفی ابزارها به مدل گروق
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": "ساعت دقیق یک شهر یا منطقه زمانی را به دست می‌آورد (پیش‌فرض تهران است).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timezone_name": {
+                        "type": "string",
+                        "description": "نام منطقه زمانی مثل Asia/Tehran, America/New_York, Europe/London"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_alarm_reminder",
+            "description": "یک یادآور یا آلارم تنظیم می‌کند تا بعد از گذشت ثانیه‌های مشخص شده، پیامی به کاربر ارسال کند.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "delay_seconds": {
+                        "type": "integer",
+                        "description": "تعداد ثانیه‌هایی که باید صبر کرد تا آلارم زنگ بخورد."
+                    },
+                    "message_text": {
+                        "type": "string",
+                        "description": "متنی که باید در زمان یادآوری به کاربر فرستاده شود."
+                    }
+                },
+                "required": ["delay_seconds", "message_text"]
+            }
+        }
+    }
+]
 
 SYSTEM_PROMPT = (
-    "تو دستیار هوشمند، خفن و خیلی باحالِ برنامه‌نویسیِ تیم NOVA VPN هستی. "
-    "لحن صحبت کردنت باید صمیمی، خودمانی، پرانرژی، رفاقتی و باحال باشه و از ایموجی‌های جذاب استفاده کنی. "
-    "اگر کسی پرسید سازنده تو کیست، با انرژی بگو: «من توسط تیم خفن NOVA VPN ساخته شدمه‌ام!» و هیچ توضیح اضافه‌ای نده. "
-    "متن‌ها رو خیلی مرتب، با پاراگراف‌بندی خلوت و خطوط خالی بین بخش‌ها بنویس. "
-    "هر زمان کاربر درخواست کدنویسی داد، با دست باز براش بنویس و حتماً کدهای برنامه‌نویسی رو داخل بلوک کد (```) بذار."
+    "تو دستیار هوشمند، خفن و خیلی باحالِ تیم NOVA VPN هستی. "
+    "لحن صحبت کردنت صمیمی، خودمانی، پرانرژی و رفاقتی است و از ایموجی‌ها استفاده می‌کنی. "
+    "تو توانایی چک کردن ساعت مناطق مختلف دنیا و تنظیم آلارم و یادآور را داری. "
+    "اگر کاربر از تو خواست لینک دانلود ویدیو بفرستد، به او بگو لینک اینستاگرام یا تیک‌تاک بفرستد."
 )
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_name = user.first_name
-    
-    chat_histories[user.id] = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT
-        },
-        {
-            "role": "user",
-            "content": f"سلام. من {user_name} هستم."
-        }
-    ]
-    
-    welcome_message = (
-        f"سلام {user_name} گل! 🚀 به ربات **NOVA VPN** خوش اومدی.\n\n"
-        "من اینجام تا توی هر پروژه‌ و کدنویسی‌ای که داری کمکت کنم. چطور می‌تونم برات مفید باشم؟ 😎"
+def get_main_menu():
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        types.InlineKeyboardButton(text="📥 راهنمای دانلود", callback_data="help_download"),
+        types.InlineKeyboardButton(text="📊 وضعیت ربات", callback_data="system_stats")
     )
-    await update.message.reply_text(welcome_message, parse_mode="Markdown")
+    return builder.as_markup()
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_id = user.id
-    user_message = update.message.text
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    user_name = message.from_user.first_name
+    chat_histories[message.chat.id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    welcome_text = (
+        f"سلام {user_name} گل! 🚀 به ربات پیشرفته‌ی **NOVA VPN** خوش اومدی.\n\n"
+        "من هم می‌تونم ویدیوهای اینستاگرام و تیک‌تاک رو برات دانلود کنم و هم به عنوان دستیار هوشمندت ساعت رو بگم یا برات آلارم و یادآور تنظیم کنم! 😎"
+    )
+    await message.answer(welcome_text, reply_markup=get_main_menu())
 
-    if user_id not in chat_histories:
-        chat_histories[user_id] = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            }
-        ]
+@dp.callback_query(F.data == "help_download")
+async def help_cb(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "💡 **راهنمای استفاده:**\n\n"
+        "▫️ برای دانلود: لینک اینستاگرام یا تیک‌تاک بفرست.\n"
+        "▫️ برای دستیار: می‌تونی بپرسید «الان ساعت چنده‌؟» یا «۱۰ ثانیه دیگه به من یادآوری کن فلان کار رو کنم!»",
+        reply_markup=get_main_menu()
+    )
+    await callback.answer()
 
-    chat_histories[user_id].append({"role": "user", "content": user_message})
+@dp.callback_query(F.data == "system_stats")
+async def stats_cb(callback: types.CallbackQuery):
+    await callback.message.edit_text("📊 وضعیت سرور: هوشمند، پایدار و آماده به کار 🟢", reply_markup=get_main_menu())
+    await callback.answer()
 
-    if len(chat_histories[user_id]) > 15:
-        chat_histories[user_id] = [chat_histories[user_id][0]] + chat_histories[user_id][-14:]
+# هندلر لینک‌ها برای دانلود ویدیو
+@dp.message(F.text.regexp(r'https?://[^\s]+'))
+async def download_video(message: types.Message):
+    url = message.text.strip()
+    
+    if "youtube.com" in url or "youtu.be" in url:
+        await message.answer("⚠️ دانلود از یوتیوب غیرفعال است. لطفاً لینک **اینستاگرام یا تیک‌تاک** بفرستید.")
+        return
 
-    bot_response = None
-    last_error = None
+    processing_msg = await message.answer("⏳ در حال دانلود ویدیو، لطفاً صبور باشید...")
+    
+    output_template = f"downloaded_video_{message.chat.id}.%(ext)s"
+    ydl_opts = {
+        'outtmpl': output_template,
+        'format': 'mp4/best',
+        'max_filesize': 50 * 1024 * 1024,
+    }
+    
+    try:
+        def run_dl():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                return ydl.prepare_filename(info)
 
-    active_models = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]
-
-    for model_name in active_models:
+        filename = await asyncio.to_thread(run_dl)
+        
+        if filename and os.path.exists(filename):
+            await message.answer_video(types.FSInputFile(filename), caption="✅ ویدیو با موفقیت دانلود شد!")
+            try:
+                os.remove(filename)
+            except:
+                pass
+            try:
+                await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
+            except:
+                pass
+        else:
+            try:
+                await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
+            except:
+                pass
+            await message.answer("❌ خطا در دانلود فایل. لطفاً لینک معتبر بفرستید.")
+            
+    except Exception as e:
+        logging.error(f"Error: {e}")
         try:
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=chat_histories[user_id],
-                temperature=0.8,
-                max_tokens=4096
+            await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
+        except:
+            pass
+        await message.answer("❌ خطایی رخ داد یا لینک نامعتبر است.")
+
+# هندلر پیام‌های متنی عادی و هوش مصنوعی با قابلیت ابزارها (Tools)
+@dp.message()
+async def handle_ai_message(message: types.Message):
+    chat_id = message.chat.id
+    user_message = message.text
+
+    if chat_id not in chat_histories:
+        chat_histories[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    chat_histories[chat_id].append({"role": "user", "content": user_message})
+
+    if len(chat_histories[chat_id]) > 15:
+        chat_histories[chat_id] = [chat_histories[chat_id][0]] + chat_histories[chat_id][-14:]
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=chat_histories[chat_id],
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=2048
+        )
+        
+        response_message = response.choices[0].message
+        
+        # بررسی اینکه آیا مدل خواسته از ابزاری استفاده کند؟
+        if response_message.tool_calls:
+            chat_histories[chat_id].append(response_message)
+            
+            for tool_call in response_message.tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                
+                tool_output = ""
+                if function_name == "get_current_time":
+                    tool_output = get_current_time(**function_args)
+                elif function_name == "set_alarm_reminder":
+                    # تزریق chat_id به تابع آلارم برای اینکه ربات بداند به کدام چت پیام بفرستد
+                    function_args["chat_id"] = chat_id
+                    tool_output = set_alarm_reminder(**function_args)
+                
+                chat_histories[chat_id].append({
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": tool_output,
+                })
+            
+            # دریافت پاسخ نهایی از مدل پس از اجرای ابزار
+            second_response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=chat_histories[chat_id]
             )
-            bot_response = completion.choices[0].message.content
-            break
-        except Exception as e:
-            last_error = str(e)
-            continue
+            final_reply = second_response.choices[0].message.content
+            chat_histories[chat_id].append({"role": "assistant", "content": final_reply})
+            await message.answer(final_reply)
+        else:
+            bot_response = response_message.content
+            chat_histories[chat_id].append({"role": "assistant", "content": bot_response})
+            await message.answer(bot_response)
 
-    if bot_response:
-        chat_histories[user_id].append({"role": "assistant", "content": bot_response})
-        await send_long_message(update, bot_response)
-    else:
-        logging.error(f"Error handling message: {last_error}")
-        await update.message.reply_text(f"❌ اوه، یه خطایی رخ داد:\n`{last_error}`", parse_mode="Markdown")
+    except Exception as e:
+        logging.error(f"AI Error: {e}")
+        await message.answer("❌ متأسفانه در پردازش درخواست شما خطایی رخ داد.")
 
-def main():
+async def main():
     t = Thread(target=run_web)
     t.start()
 
-    TOKEN = os.environ.get("BOT_TOKEN")
-    if not TOKEN:
-        raise ValueError("توکن ربات (BOT_TOKEN) در متغیرهای محیطی یافت نشد!")
-
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-    print("AI Bot is running with bot.py...")
-    app.run_polling()
+    print("🤖 ربات هوشمند پیشرفته روشن شد...")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("❌ ربات متوقف شد.")
