@@ -226,7 +226,7 @@ async def download_video(message: types.Message):
         filename = await asyncio.to_thread(run_dl)
         
         if filename and os.path.exists(filename):
-            await message.answer_video(types.FSInputFile(filename), caption="✅ بیا اینم ویدیوت، حالشو ببر! 😎")
+            await message.answer_video(types.FSInputFile(filename), caption=" حال کناااا  😎")
             try:
                 os.remove(filename)
             except:
@@ -267,7 +267,7 @@ async def handle_ai_message(message: types.Message):
     try:
         # تغییر مدل به نسخه قدرتمند جدید با هوش بالا و بدون چینی‌بازی
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="qwen/qwen3.8-27b",
             messages=chat_histories[user_id],
             tools=tools,
             tool_choice="auto",
