@@ -97,7 +97,7 @@ def set_alarm_reminder(delay_seconds: int, message_text: str, chat_id: int):
     async def delayed_task():
         await asyncio.sleep(delay_seconds)
         try:
-            await bot.send_message(chat_id=chat_id, text=f"⏰ **یادآوری رفاقتی:**\n\n{message_text}")
+            await bot.send_message(chat_id=chat_id, text=f"⏰ الارمت دادا\n\n{message_text}")
         except Exception as e:
             logging.error(f"Error sending alarm: {e}")
 
@@ -183,10 +183,10 @@ async def cmd_start(message: types.Message):
 @dp.callback_query(F.data == "help_download")
 async def help_cb(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        "💡 **راهنمای رفاقتی:**\n\n"
-        "▫️ **کدنویسی:** هر جا گیر کردی بگو تا برات کد پایتون بنویسم.\n"
-        "▫️ **دانلود:** لینک اینستاگرام یا تیک‌تاک بفرست تا مستقیم فایلش رو بفرستم.\n"
-        "▫️ **ساعت و آلارم:** کافیه بپرس ساعت چنده یا یادآوری تنظیم کنی!",
+        "💡 راهنمای رفاقتی:\n\n"
+        "▫️ کدنویسی: هر جا گیر کردی بگو تا برات کد پایتون بنویسم.\n"
+        "▫️ دانلود: لینک اینستاگرام یا تیک‌تاک بفرست تا مستقیم فایلش رو بفرستم.\n"
+        "▫️ ساعت و آلارم: کافیه بپرس ساعت چنده یا یادآوری تنظیم کنی!",
         reply_markup=get_main_menu()
     )
     await callback.answer()
@@ -205,10 +205,10 @@ async def download_video(message: types.Message):
     url = message.text.strip()
     
     if "youtube.com" in url or "youtu.be" in url:
-        await message.answer("⚠️ داش یوتیوب فعلاً تعطیله، لطفاً لینک معتبر **اینستاگرام یا تیک‌تاک** بفرست! 😉")
+        await message.answer("⚠️ داش یوتیوب فعلاً تعطیله، لطفاً لینک معتبر اینستا یا تیک‌تاک بفرست! 😉")
         return
 
-    processing_msg = await message.answer("⏳ دمت گرم، صبور باش دارم ویدیو رو می‌کشم بیرون...")
+    processing_msg = await message.answer("⏳ برام لینک فرستادی؟ الان ویدیو رو با کیفیت میارم برات صب بده...")
     
     output_template = f"downloaded_video_{message.chat.id}.%(ext)s"
     ydl_opts = {
@@ -248,7 +248,7 @@ async def download_video(message: types.Message):
             await bot.delete_message(chat_id=message.chat.id, message_id=processing_msg.message_id)
         except:
             pass
-        await message.answer("❌ اوه اوه، یه جای کار لنگ زد یا لینک معتبر نبود.")
+        await message.answer("❌ حاجی یه ارور داده فعلا کاری از دستم بر نیاد یا دوباره تلاش کن یا نمیتونم")
 
 # ================= AI CHAT & TOOL EXECUTION =================
 @dp.message()
