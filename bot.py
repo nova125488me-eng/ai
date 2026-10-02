@@ -185,7 +185,7 @@ async def cmd_start(message: types.Message):
 @dp.callback_query(F.data == "help_download")
 async def help_cb(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        "💡 راهنمای رفاقتی:\n\n"
+        "💡 راهنما :\n\n"
         "▫️ کدنویسی: هر جا گیر کردی بگو تا برات کد پایتون بنویسم.\n"
         "▫️ دانلود: لینک اینستاگرام یا تیک‌تاک بفرست تا مستقیم فایلش رو بفرستم.\n"
         "▫️ ساعت و آلارم: کافیه بپرس ساعت چنده یا یادآوری تنظیم کنی!",
@@ -207,7 +207,7 @@ async def download_video(message: types.Message):
     url = message.text.strip()
     
     if "youtube.com" in url or "youtu.be" in url:
-        await message.answer("⚠️ داش یوتیوب فعلاً تعطیله، لطفاً لینک معتبر اینستا یا تیک‌تاک بفرست! 😉")
+        await message.answer("⚠️ داش یوتیوب فعلا اوکی نی بی زحمت لینک تیکتاک یا اینستا بفرست! 😉")
         return
 
     processing_msg = await message.answer("⏳ برام لینک فرستادی؟ الان ویدیو رو با کیفیت میارم برات صب بده...")
@@ -269,7 +269,7 @@ async def handle_ai_message(message: types.Message):
     try:
         # تغییر مدل به نسخه قدرتمند جدید با هوش بالا و بدون چینی‌بازی
         response = client.chat.completions.create(
-            model="qwen/qwen3.8-27b",
+            model="openai/gpt-oss-120b",
             messages=chat_histories[user_id],
             tools=tools,
             tool_choice="auto",
